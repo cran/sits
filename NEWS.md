@@ -1,11 +1,27 @@
-# SITS (development version)
+# SITS Release History
 
-We are preparing to release the package on CRAN and are making relevant changes in the development version.
+# What's new in SITS version 1.1.0
+
+### New features in SITS version 1.1.0
+* Introduced support to kernel functions in `sits_apply`
+* Introduced new function `sits_mixture_model` for spectral mixture analysis
+* Support for the Swiss Data Cube ([swissdatacube.org](https://www.swissdatacube.org/))
+* Support for mosaic visualization in `sits_view`
+* Introduced new function `sits_as_sf` to convert sits objects to sf
+* Export images as [COG](https://www.cogeo.org/) in `sits_regularize`
+* Add `roi` parameter in `sits_regularize` function
+* Add `crs` parameter in `sits_get_data`
+* Change Microsoft Planetary Computer source name to `"MPC"`
+* Fix several bugs and improve performance
 
 # What's new in SITS version 1.0.0
+* Available on CRAN.
 
 ### New features in SITS version 1.0.0
-* hotfix improve `sits_whittaker()` function to process cube;
+* Hotfix to improve `sits_whittaker()` function to process cube.
+* Update documentation to match CRAN standards
+
+# What's new in SITS version  0.17.0
 
 ### New features in SITS version 0.17.0
 * Introduced new classifier model `sits_lighttae()`
@@ -30,7 +46,6 @@ confidence
 * Update documentation
 * Improve several internal functions performances
 * Fix several bugs
-
 
 # What's new in SITS version 0.16.3
 

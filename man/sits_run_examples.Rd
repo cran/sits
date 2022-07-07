@@ -13,3 +13,14 @@ A logical value
 This function informs if sits examples should run.
 This is useful to avoid running slow examples in CRAN environment.
 }
+\examples{
+if (sits_run_examples()) {
+# set examples to FALSE
+sits_config(run_examples = FALSE)
+isFALSE(sits_run_examples())
+# recover config state
+sits_config(run_examples = TRUE)
+}
+
+
+}

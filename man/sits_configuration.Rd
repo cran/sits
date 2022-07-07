@@ -8,6 +8,8 @@
 \title{Configure parameters for sits package}
 \usage{
 sits_config(
+  run_tests = NULL,
+  run_examples = NULL,
   processing_bloat = NULL,
   rstac_pagination_limit = NULL,
   raster_api_package = NULL,
@@ -23,6 +25,10 @@ sits_config_show(source = NULL, collection = NULL, colors = FALSE)
 sits_list_collections(source = NULL)
 }
 \arguments{
+\item{run_tests}{Should tests be run?}
+
+\item{run_examples}{Should examples be run?}
+
 \item{processing_bloat}{Estimated growth size of R memory relative
 to block size.}
 
@@ -86,6 +92,10 @@ location of their file in the environmental variable
 
 To see the key entries and contents of the current configuration values,
 use \code{sits_config_show()}.
+}
+\examples{
+current_config <- sits_config()
+sits_config_show()
 }
 \author{
 Gilberto Camara, \email{gilberto.camara@inpe.br}

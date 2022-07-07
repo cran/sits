@@ -16,6 +16,9 @@
 #'
 #' @return            No return value, called for side effects.
 #'
+#' @examples
+#' csv_file <- paste0(tempdir(), "/cerrado_2classes.csv")
+#' sits_to_csv(cerrado_2classes, file = csv_file)
 #' @export
 #'
 sits_to_csv <- function(data, file) {
@@ -94,6 +97,8 @@ sits_to_csv <- function(data, file) {
         start_date = as.Date(.data[["start_date"]]),
         end_date = as.Date(.data[["end_date"]])
     )
+
+    class(samples) <- c("sits", class(samples))
 
     return(samples)
 }

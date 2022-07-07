@@ -87,6 +87,17 @@ sits_kfold_validate <- function(samples,
         msg = "Invalid multicores parameter"
     )
 
+    # For now, torch models does not support multicores in Windows
+    if (multicores > 1 && .Platform$OS.type == "windows" &&
+        "optimizer" %in% ls(environment(ml_method))) {
+        multicores <- 1
+        warning(
+            "sits_kfold_validate() works only with 1 core in Windows OS.",
+            call. = FALSE,
+            immediate. = TRUE
+        )
+    }
+
     # get the labels of the data
     labels <- sits_labels(samples)
 
@@ -187,6 +198,11 @@ sits_kfold_validate <- function(samples,
 #'
 #' @return A \code{caret::confusionMatrix} object to be used for
 #'         validation assessment.
+#'
+#' @examples
+#' if (sits_run_examples()){
+#'    conf_matrix <- sits_validate(cerrado_2classes)
+#' }
 #' @export
 sits_validate <- function(samples,
                           samples_validation = NULL,

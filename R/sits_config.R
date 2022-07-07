@@ -24,6 +24,8 @@
 #' in each cloud service supported by sits. Users can select to get information
 #' only for a single service by using the \code{source} parameter.
 #'
+#' @param run_tests              Should tests be run?
+#' @param run_examples           Should examples be run?
 #' @param processing_bloat       Estimated growth size of R memory relative
 #'                               to block size.
 #' @param rstac_pagination_limit Limit of number of items returned by STAC.
@@ -54,8 +56,12 @@ NULL
 #' \code{sits_config()} returns a \code{list} containing the final
 #' configuration options.
 #'
+#' @examples
+#' current_config <- sits_config()
 #' @export
-sits_config <- function(processing_bloat = NULL,
+sits_config <- function(run_tests = NULL,
+                        run_examples = NULL,
+                        processing_bloat = NULL,
                         rstac_pagination_limit = NULL,
                         raster_api_package = NULL,
                         gdal_creation_options = NULL,
@@ -120,6 +126,8 @@ sits_config <- function(processing_bloat = NULL,
         # set options defined by user (via YAML file)
         # modifying existing configuration
         .config_set_options(
+            run_tests = config[["run_tests"]],
+            run_examples = config[["run_examples"]],
             processing_bloat = config[["processing_bloat"]],
             rstac_pagination_limit = config[["rstac_pagination_limit"]],
             raster_api_package = config[["raster_api_package"]],
@@ -141,6 +149,8 @@ sits_config <- function(processing_bloat = NULL,
     # set options defined by user (via parameters)
     # modifying existing configuration
     .config_set_options(
+        run_tests = run_tests,
+        run_examples = run_examples,
         processing_bloat = processing_bloat,
         rstac_pagination_limit = rstac_pagination_limit,
         raster_api_package = raster_api_package,
@@ -159,7 +169,8 @@ sits_config <- function(processing_bloat = NULL,
 #'
 #' @return A \code{list} containing the respective
 #' configuration printed in the console.
-#'
+#' @examples
+#' sits_config_show()
 #' @export
 sits_config_show <- function(source = NULL,
                              collection = NULL,
@@ -288,7 +299,9 @@ sits_list_collections <- function(source = NULL) {
     return(invisible(NULL))
 }
 
-.config_set_options <- function(processing_bloat = NULL,
+.config_set_options <- function(run_tests = NULL,
+                                run_examples = NULL,
+                                processing_bloat = NULL,
                                 rstac_pagination_limit = NULL,
                                 raster_api_package = NULL,
                                 gdal_creation_options = NULL,
@@ -303,6 +316,24 @@ sits_list_collections <- function(source = NULL) {
     # initialize config
     if (!exists("config", envir = sits_env)) {
         sits_env$config <- list()
+    }
+
+    # run tests?
+    if (!is.null(run_tests)) {
+        .check_lgl(run_tests,
+                   len_min = 1, len_max = 1,
+                   msg = "invalid 'run_tests' parameter"
+        )
+        sits_env$config[["run_tests"]] <- run_tests
+    }
+
+    # run examples?
+    if (!is.null(run_examples)) {
+        .check_lgl(run_examples,
+                   len_min = 1, len_max = 1,
+                   msg = "invalid 'run_examples' parameter"
+        )
+        sits_env$config[["run_examples"]] <- run_examples
     }
 
     # process processing_bloat
@@ -497,7 +528,6 @@ sits_list_collections <- function(source = NULL) {
 
     # load the default configuration file
     yml_file <- Sys.getenv("SITS_CONFIG_USER_FILE")
-
     # check if the file exists
     if (nchar(yml_file) > 0) {
         .check_warn(

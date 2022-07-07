@@ -2,51 +2,29 @@
 % Please edit documentation in R/sits_active_learning.R
 \name{sits_confidence_sampling}
 \alias{sits_confidence_sampling}
-\alias{sits_confidence_samples}
 \title{Suggest high confidence samples to increase the training set.}
 \usage{
-sits_confidence_samples(
+sits_confidence_sampling(
   probs_cube,
   n = 20,
   min_margin = 0.9,
-  min_dist_pixels = 10
+  sampling_window = 10
 )
 }
 \arguments{
-\item{probs_cube}{A `sits` probability cube. See `sits_classify`.}
+\item{probs_cube}{A probability cube. See \code{sits_classify}.}
 
 \item{n}{Number of suggested points per class.}
 
 \item{min_margin}{Minimum margin of confidence to select a sample}
 
-\item{min_dist_pixels}{Minimum distance among suggested points (in pixels).}
+\item{sampling_window}{Window size for collecting points (in pixels).
+The minimum window size is 10.}
 }
 \value{
-A data.frame with longitude & latitude in WGS84 of locations
-            for each class that meet the criteria of minimum margin of
-            confidence and minimum geographical distance between them.
-
-if (sits_run_examples()) {
-    # create a data cube
-    data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
-    cube <- sits_cube(
-        source = "BDC",
-        collection = "MOD13Q1-6",
-        data_dir = data_dir,
-        delim = "_",
-        parse_info = c("X1", "X2", "tile", "band", "date")
-    )
-    # build a random forest model
-    samples_ndvi <- sits_select(samples_modis_4bands, bands = c("NDVI")
-    rfor_model <- sits_train(samples_ndvi, ml_method = sits_rfor())
-    # classify the cube
-    probs_cube <- sits_classify(data = cube, ml_model = rfor_model)
-    # run a Bayesian smoothing
-    bayes_cube <- sits_smooth(probs_cube)
-    # obtain a new set of samples for active learning
-    # the samples are located in uncertain places
-    new_samples <- sits_confidence_sampling(bayes_cube)
-}
+A tibble with longitude and latitude in WGS84 with locations
+which have high uncertainty and meet the minimum distance
+criteria.
 }
 \description{
 Suggest points for increasing the training set. These points are labelled
@@ -71,8 +49,29 @@ The Bayesian smoothing procedure will reduce the classification outliers
 and thus increase the likelihood that the resulting pixels with provide
 good quality samples for each class.
 }
+\examples{
+if (sits_run_examples()) {
+    # create a data cube
+    data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
+    cube <- sits_cube(
+        source = "BDC",
+        collection = "MOD13Q1-6",
+        data_dir = data_dir,
+        delim = "_",
+        parse_info = c("X1", "X2", "tile", "band", "date")
+    )
+    # build a random forest model
+    samples_ndvi <- sits_select(samples_modis_4bands, bands = c("NDVI"))
+    rfor_model <- sits_train(samples_ndvi, ml_method = sits_rfor())
+    # classify the cube
+    probs_cube <- sits_classify(data = cube, ml_model = rfor_model)
+    # obtain a new set of samples for active learning
+    # the samples are located in uncertain places
+    new_samples <- sits_confidence_sampling(probs_cube)
+}
+}
 \author{
-Alber Sanchez, \email{alber.sanchez@inpe.br}
+Alber Sanchez, \email{alber.ipia@inpe.br}
 
 Rolf Simoes, \email{rolf.simoes@inpe.br}
 

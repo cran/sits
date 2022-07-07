@@ -12,7 +12,7 @@
 #' @param samples    Time series with the training samples.
 #' @param num_trees  Number of trees to grow. This should not be set to too
 #'   small a number, to ensure that every input row gets predicted
-#'   at least a few times (default: 200).
+#'   at least a few times (default: 120).
 #' @param mtry       Number of variables randomly sampled as candidates at
 #'   each split (default: NULL - use default value of
 #'   \code{randomForest::randomForest()} function, i.e.
@@ -42,7 +42,7 @@
 #' @export
 #'
 sits_rfor <- function(samples = NULL,
-                      num_trees = 200,
+                      num_trees = 120,
                       mtry = NULL, ...) {
 
     # function that returns `randomForest::randomForest` model
@@ -132,7 +132,7 @@ sits_rfor <- function(samples = NULL,
 #'
 #' @param samples             Time series with the training samples.
 #' @param formula          Symbolic description of the model to be fit.
-#'                         (default: sits_formula_logref).
+#'                         (default: sits_formula_linear).
 #' @param scale            Logical vector indicating the variables to be scaled.
 #' @param cachesize        Cache memory in MB (default = 1000).
 #' @param kernel           Kernel used in training and predicting.
@@ -141,7 +141,7 @@ sits_rfor <- function(samples = NULL,
 #' @param degree           Exponential of polynomial type kernel (default: 3).
 #' @param coef0            Parameter needed for kernels of type polynomial
 #'                         and sigmoid (default: 0).
-#' @param cost             Cost of constraints violation (default: 10.
+#' @param cost             Cost of constraints violation (default: 10).
 #' @param tolerance        Tolerance of termination criterion (default: 0.001).
 #' @param epsilon          Epsilon in the insensitive-loss function
 #'                         (default: 0.1).
@@ -168,7 +168,7 @@ sits_rfor <- function(samples = NULL,
 #' }
 #' @export
 #'
-sits_svm <- function(samples = NULL, formula = sits_formula_logref(),
+sits_svm <- function(samples = NULL, formula = sits_formula_linear(),
                      scale = FALSE, cachesize = 1000,
                      kernel = "radial", degree = 3, coef0 = 0,
                      cost = 10, tolerance = 0.001,
@@ -410,7 +410,20 @@ sits_xgboost <- function(samples = NULL,
 #' @param predictors_index  Index of the valid columns
 #'                          to compose formula (default: -2:0).
 #' @return A function that computes a valid formula using a log function.
-#'
+#' @examples
+#' if (sits_run_examples()) {
+#'     # Example of training a model for time series classification
+#'     # Retrieve the samples for Mato Grosso
+#'     # train an SVM model
+#'     ml_model <- sits_train(samples_modis_4bands,
+#'         ml_method = sits_svm(formula = sits_formula_logref()))
+#'     # select the bands to classify the point
+#'     sample_bands <- sits_bands(samples_modis_4bands)
+#'     point_4bands <- sits_select(point_mt_6bands, bands = sample_bands)
+#'     # classify the point
+#'     point_class <- sits_classify(point_4bands, ml_model)
+#'     plot(point_class)
+#' }
 #' @export
 #'
 sits_formula_logref <- function(predictors_index = -2:0) {
@@ -466,7 +479,20 @@ sits_formula_logref <- function(predictors_index = -2:0) {
 #' @param predictors_index  Index of the valid columns
 #'                    whose names are used to compose formula (default: -2:0).
 #' @return A function that computes a valid formula using a linear function.
-#'
+#' @examples
+#' if (sits_run_examples()) {
+#'     # Example of training a model for time series classification
+#'     # Retrieve the samples for Mato Grosso
+#'     # train an SVM model
+#'     ml_model <- sits_train(samples_modis_4bands,
+#'         ml_method = sits_svm(formula = sits_formula_logref()))
+#'     # select the bands to classify the point
+#'     sample_bands <- sits_bands(samples_modis_4bands)
+#'     point_4bands <- sits_select(point_mt_6bands, bands = sample_bands)
+#'     # classify the point
+#'     point_class <- sits_classify(point_4bands, ml_model)
+#'     plot(point_class)
+#' }
 #' @export
 #'
 sits_formula_linear <- function(predictors_index = -2:0) {

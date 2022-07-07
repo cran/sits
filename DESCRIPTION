@@ -1,6 +1,6 @@
 Package: sits
 Type: Package
-Version: 1.0.0
+Version: 1.1.0
 Title: Satellite Image Time Series Analysis for Earth Observation Data
         Cubes
 Authors@R: c(person('Rolf', 'Simoes', role = c('aut'), email = 'rolf.simoes@inpe.br'),
@@ -49,12 +49,12 @@ Imports: magrittr, yaml, data.table (>= 1.13), dplyr (>= 1.0.0),
         0.9.1-5), sf (>= 1.0), slider (>= 0.2.0), stats, terra (>=
         1.5-17), tibble (>= 3.1), tidyr (>= 1.2.0), torch (>= 0.7.0),
         utils
-Suggests: caret, dendextend, dtwclust, dtwSat (>= 0.2.7), digest,
-        e1071, FNN, gdalcubes (>= 0.6.0), geojsonsf, httr, jsonlite,
-        kohonen(>= 3.0.11), leafem (>= 0.2.0), leaflet (>= 2.1.1), luz
-        (>= 0.2.0), methods, mgcv, openxlsx, randomForest,
-        RcppArmadillo (>= 0.11), scales, stars (>= 0.5), testthat (>=
-        3.1.3), torchopt(>= 0.1.1), xgboost, zoo
+Suggests: caret, dendextend, dtwclust, dtwSat (>= 0.2.7), DiagrammeR,
+        digest, e1071, FNN, gdalcubes (>= 0.6.0), geojsonsf, httr,
+        jsonlite, kohonen(>= 3.0.11), leafem (>= 0.2.0), leaflet (>=
+        2.1.1), luz (>= 0.2.0), methods, mgcv, openxlsx, randomForest,
+        randomForestExplainer, RcppArmadillo (>= 0.11), scales, stars
+        (>= 0.5), testthat (>= 3.1.3), torchopt(>= 0.1.2), xgboost, zoo
 Config/testthat/edition: 3
 Config/testthat/parallel: false
 Config/testthat/start-first: cube, raster, ml
@@ -71,8 +71,8 @@ Collate: 'RcppExports.R' 'data.R' 'pipe.R' 'sits-package.R'
         'sits_gdalcubes.R' 'sits_geo_dist.R' 'sits_get_data.R'
         'sits_imputation.R' 'sits_labels.R'
         'sits_label_classification.R' 'sits_lighttae.R'
-        'sits_machine_learning.R' 'sits_merge.R' 'sits_mlp.R'
-        'sits_parallel.R' 'sits_patterns.R' 'sits_plot.R'
+        'sits_machine_learning.R' 'sits_merge.R' 'sits_mixture_model.R'
+        'sits_mlp.R' 'sits_parallel.R' 'sits_patterns.R' 'sits_plot.R'
         'sits_raster_api.R' 'sits_raster_api_terra.R'
         'sits_raster_blocks.R' 'sits_raster_data.R'
         'sits_raster_sub_image.R' 'sits_regularize.R' 'sits_resnet.R'
@@ -81,17 +81,17 @@ Collate: 'RcppExports.R' 'data.R' 'pipe.R' 'sits-package.R'
         'sits_smooth_aux_functions.R' 'sits_som.R' 'sits_source_api.R'
         'sits_source_api_aws.R' 'sits_source_api_bdc.R'
         'sits_source_api_deafrica.R' 'sits_source_api_local.R'
-        'sits_source_api_mspc.R' 'sits_source_api_stac.R'
-        'sits_source_api_usgs.R' 'sits_space_time_operations.R'
-        'sits_stac.R' 'sits_tae.R' 'sits_tempcnn.R'
-        'sits_torch_conv1d.R' 'sits_torch_linear.R'
+        'sits_source_api_mpc.R' 'sits_source_api_sdc.R'
+        'sits_source_api_stac.R' 'sits_source_api_usgs.R'
+        'sits_space_time_operations.R' 'sits_stac.R' 'sits_tae.R'
+        'sits_tempcnn.R' 'sits_torch_conv1d.R' 'sits_torch_linear.R'
         'sits_torch_spatial_encoder.R'
         'sits_torch_temporal_attention_encoder.R' 'sits_tibble.R'
         'sits_timeline.R' 'sits_train.R' 'sits_tuning.R' 'sits_twdtw.R'
         'sits_utils.R' 'sits_uncertainty.R' 'sits_validate.R'
         'sits_view.R' 'sits_values.R' 'sits_xlsx.R' 'zzz.R'
 NeedsCompilation: yes
-Packaged: 2022-05-19 00:09:17 UTC; gilbertocamara
+Packaged: 2022-07-07 19:38:19 UTC; gilbertocamara
 Author: Rolf Simoes [aut],
   Gilberto Camara [aut, cre],
   Felipe Souza [aut],
@@ -101,4 +101,4 @@ Author: Rolf Simoes [aut],
   Alber Sanchez [aut],
   Gilberto Queiroz [aut]
 Repository: CRAN
-Date/Publication: 2022-05-19 07:00:02 UTC
+Date/Publication: 2022-07-07 20:00:02 UTC
