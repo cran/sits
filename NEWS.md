@@ -1,6 +1,46 @@
 # SITS Release History
 
+# What's new in SITS version 1.2.0
+
+### New features in SITS version 1.2.0
+* `sits_get_data()` can be used to retrieve samples in classified cube
+*  Support for mixture models (`sits_mixture_model()`)
+*  Joining cubes in a mosaic (`sits_mosaic_cubes()`)
+*  Extract the trained ML model (`sits_model()`)
+*  Downloading and copying data cubes (`sits_cube_copy()`) 
+*  Combine prediction by average and entropy (`sits_combine_predictions()`)
+*  Significant performance improvement when working with COG files
+*  Allow plot of confusion matrix (`sits_plot`)
+*  Support for operations on CLOUD band in `sits_apply()`
+*  Bug fixes and internal re-engineering for better code maintenance
+
 # What's new in SITS version 1.1.0
+
+### Hotfix version 1.1.0-8
+* Fix support to BDC cubes in `sits_regularize()` (issue #848)
+* Fix support to classified_image cubes in `sits_labels()<-` (issue #846)
+
+### Hotfix version 1.1.0-7
+* Fix out of memory error in `sits_label_classification()` and `sits_smooth()` (issue #850)
+
+### Hotfix version 1.1.0-6
+* Fix resume feature in `sits_classify()` on BDC cubes (issue #844)
+
+### Hotfix version 1.1.0-5
+* Fix bound box issue in image blocks produced by `sits_apply()`
+
+### Hotfix version 1.1.0-4
+* Fix MPC cube time expiration bug
+
+### Hotfix version 1.1.0-3
+* Fix bound box issue in image blocks produced by `sits_apply()`
+
+### Hotfix version 1.1.0-2
+* Improve sits_values() function (issue #810)
+* Fix sits_reduce_imbalance() function (issue #809)
+
+### Hotfix version 1.1.0-1
+* Fix sits_accuracy() function (issue #807)
 
 ### New features in SITS version 1.1.0
 * Introduced support to kernel functions in `sits_apply`

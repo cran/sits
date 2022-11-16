@@ -1,6 +1,7 @@
 #' @title Format tile parameter provided by users
 #' @name .usgs_format_tiles
 #' @keywords internal
+#' @noRd
 #'
 #' @param tiles     Tiles provided by users.
 #' @return          Attributes of wrs path and row.
@@ -30,6 +31,7 @@
 }
 
 #' @keywords internal
+#' @noRd
 #' @export
 .source_collection_access_test.usgs_cube <- function(source, ...,
                                                      collection,
@@ -43,10 +45,7 @@
         collection = collection,
         limit = 1
     )
-    items_query$version <- .config_get(key = c(
-        "sources", source,
-        "rstac_version"
-    ))
+
     items_query <- rstac::ext_query(
         q = items_query,
         "landsat:correction" %in% "L2SR",
@@ -97,6 +96,7 @@
 }
 
 #' @keywords internal
+#' @noRd
 #' @export
 .source_item_get_hrefs.usgs_cube <- function(source, item, ...,
                                              collection = NULL) {
@@ -109,6 +109,7 @@
 }
 
 #' @keywords internal
+#' @noRd
 #' @export
 .source_items_new.usgs_cube <- function(source,
                                         collection,
@@ -119,11 +120,14 @@
     # set caller to show in errors
     .check_set_caller(".source_items_new.usgs_cube")
 
-    # forcing version
-    stac_query$version <- "0.9.0"
-
     # get start and end date
-    datetime <- strsplit(x = stac_query$params$datetime, split = "/")[[1]]
+    dates_chr <- strsplit(x = stac_query$params$datetime, split = "/")[[1]]
+
+    # the usgs stac only accepts RFC 3339 datetime format
+    stac_query$params$datetime <- paste(
+        format(as.Date(dates_chr), "%Y-%m-%dT%H:%M:%SZ"),
+        collapse = "/"
+    )
 
     # request with more than searched items throws 502 error
     stac_query$params$limit <- 300
@@ -140,9 +144,11 @@
             "platform" == platform
         )
     } else {
-        platform <- unlist(unname(.config_get(
-            key = c("sources", source, "collections",  collection, "platforms")
-        )))
+        platform <- unlist(unname(
+            .conf(
+            "sources", source, "collections",  collection, "platforms"
+            )
+        ))
 
         stac_query <- rstac::ext_query(
             q = stac_query,
@@ -155,9 +161,7 @@
         q = stac_query,
         "landsat:correction" %in% c("L2SR", "L2SP"),
         "landsat:collection_category" %in% c("T1", "T2"),
-        "landsat:collection_number" %in% "02",
-        "datetime" >= datetime[[1]],
-        "datetime" <= datetime[[2]]
+        "landsat:collection_number" %in% "02"
     )
 
     # if specified, a filter per tile is added to the query
@@ -173,41 +177,38 @@
             "landsat:wrs_row" %in% sep_tile$wrs_row
         )
     }
+
     # making the request
     items <- rstac::post_request(q = stac_query, ...)
-    # retrieving the response
-    items$features <- items$features[grepl(
-        "_SR$",
-        rstac::items_reap(items, "id")
-    )]
+
+    # filter only surface reflectance products
+    items$features <- items$features[
+        grepl("_SR$", rstac::items_reap(items, "id"))
+    ]
+
     # checks if the collection returned zero items
     .check_that(
         x = !(rstac::items_length(items) == 0),
         msg = "the provided search returned zero items."
     )
+
     # if more than 2 times items pagination are found the progress bar
     # is displayed
-    matched_items <- rstac::items_matched(
-        items = items,
-        matched_field = c("meta", "found")
-    )
+    matched_items <- rstac::items_matched(items = items)
+
     # progress bar
-    progress <- matched_items > 2 * .config_rstac_limit()
+    progress <- matched_items > 2 * .conf("rstac_pagination_limit")
     # check documentation mode
     progress <- .check_documentation(progress)
-
     # fetching all the metadata and updating to upper case instruments
     items_info <- suppressWarnings(
-        rstac::items_fetch(
-            items = items,
-            progress = progress,
-            matched_field = c("meta", "found")
-        )
+        rstac::items_fetch(items = items, progress = progress)
     )
     return(items_info)
 }
 
 #' @keywords internal
+#' @noRd
 #' @export
 .source_items_tile.usgs_cube <- function(source,
                                          items, ...,

@@ -51,7 +51,7 @@ sits_values.cases_dates_bands <- function(data, bands = NULL, format) {
     # populates result
     values <- data$time_series %>%
         purrr::map(function(ts) {
-            data.matrix(dplyr::select(ts, dplyr::one_of(bands)))
+            data.matrix(dplyr::select(ts, dplyr::all_of(bands)))
         })
     return(values)
 }
@@ -60,17 +60,40 @@ sits_values.bands_cases_dates <- function(data, bands = NULL, format) {
     if (purrr::is_null(bands)) {
         bands <- sits_bands(data)
     }
-    # populates result
-    values <- bands %>% purrr::map(function(band) {
-        data$time_series %>%
-            purrr::map(function(ts) {
-                dplyr::select(ts, dplyr::one_of(band))
-            }) %>%
-            data.frame() %>%
-            tibble::as_tibble() %>%
-            as.matrix() %>%
-            t()
+
+    distances_tbl <- data %>%
+        dplyr::mutate(
+            sample_id = seq_len(nrow(data))
+        ) %>%
+        tidyr::unnest("time_series") %>%
+        dplyr::select("sample_id", dplyr::all_of(bands)) %>%
+        dplyr::group_by(.data[["sample_id"]]) %>%
+        dplyr::mutate(temp_index = seq_len(dplyr::n())) %>%
+        dplyr::ungroup()
+
+    if (length(bands) > 1) {
+        distances_tbl <- tidyr::pivot_wider(
+            distances_tbl,
+            names_from = "temp_index",
+            values_from = !!bands,
+            names_sep = ""
+        )
+    } else {
+        distances_tbl <- tidyr::pivot_wider(
+            distances_tbl,
+            names_from = "temp_index",
+            values_from = !!bands,
+            names_prefix = bands,
+            names_sep = ""
+        )
+    }
+
+    values <- purrr::map(bands, function(band) {
+        unname(as.matrix(dplyr::select(
+            distances_tbl, dplyr::starts_with(band))
+        ))
     })
+
     names(values) <- bands
     return(values)
 }
@@ -82,7 +105,7 @@ sits_values.bands_dates_cases <- function(data, bands = NULL, format) {
     values <- bands %>% purrr::map(function(band) {
         data$time_series %>%
             purrr::map(function(ts) {
-                dplyr::select(ts, dplyr::one_of(band))
+                dplyr::select(ts, dplyr::all_of(band))
             }) %>%
             data.frame() %>%
             tibble::as_tibble() %>%
