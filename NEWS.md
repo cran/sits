@@ -1,5 +1,16 @@
 # SITS Release History
 
+# What's new in SITS version 1.4.0
+
+### New features in SITS version 1.3.0
+* New function for image segementation based on `supercells` package
+* New version of `sits_get_data()` to extract average values of time series based on segments
+* Support for Harmonized Landsat Sentinel (HLS) collections from NASA
+* Support for probability cubes and uncertainty cubes in `sits_view()`
+* New `summary()` function to show details of data cubes and time series tibbles
+* General big fixes
+
+
 # What's new in SITS version 1.3.0
 
 ### New features in SITS version 1.3.0
@@ -15,6 +26,9 @@
 * General bug fixes 
 
 # What's new in SITS version 1.2.0
+
+### Hotfix version 1.2.0-4
+* Fix `.raster_file_blocksize.terra()` bug (issue #918)
 
 ### Hotfix version 1.2.0-3
 * Fix `stars` proxy bug (issue #902)
