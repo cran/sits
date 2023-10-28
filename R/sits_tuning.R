@@ -1,6 +1,7 @@
 #' @title Tuning machine learning models hyper-parameters
 #' @name sits_tuning
 #'
+#' @author Rolf Simoes, \email{rolf.simoes@@inpe.br}
 #' @description
 #' Machine learning models use stochastic gradient descent (SGD) techniques to
 #' find optimal solutions. To perform SGD, models use optimization
@@ -11,10 +12,8 @@
 #' Instead of performing an exhaustive test of all parameter combinations,
 #' it selecting them randomly. Validation is done using an independent set
 #' of samples or by a validation split.  The function returns the
-#' best hyper-parameters in a list.
-#'
-#' hyper-parameters passed to \code{params} parameter should be passed
-#' by calling \code{sits_tuning_hparams()} function.
+#' best hyper-parameters in a list. Hyper-parameters passed to \code{params}
+#' parameter should be passed by calling \code{sits_tuning_hparams()}.
 #'
 #' @references
 #'  James Bergstra, Yoshua Bengio,
@@ -38,10 +37,6 @@
 #' A tibble containing all parameters used to train on each trial
 #'   ordered by accuracy
 #'
-#' @note
-#' Please refer to the sits documentation available in
-#'   <https://e-sensing.github.io/sitsbook/> for detailed examples.
-#'
 #' @examples
 #' if (sits_run_examples()) {
 #'     # find best learning rate parameters for TempCNN
@@ -50,10 +45,10 @@
 #'         ml_method = sits_tempcnn(),
 #'         params = sits_tuning_hparams(
 #'             optimizer = choice(
-#'                 torchopt::optim_adamw
+#'                 torch::optim_adamw
 #'             ),
 #'             opt_hparams = list(
-#'                 lr = beta(0.3, 5)
+#'                 lr = loguniform(10^-2, 10^-4)
 #'             )
 #'         ),
 #'         trials = 4,
@@ -67,7 +62,6 @@
 #' }
 #'
 #' @export
-#'
 sits_tuning <- function(samples,
                         samples_validation = NULL,
                         validation_split = 0.2,
@@ -75,16 +69,14 @@ sits_tuning <- function(samples,
                         params = sits_tuning_hparams(
                             optimizer = torchopt::optim_adamw,
                             opt_hparams = list(
-                                lr = beta(0.3, 5)
+                                lr = loguniform(10^-2, 10^-4)
                             )
                         ),
                         trials = 30,
                         multicores = 2,
                         progress = FALSE) {
-
     # set caller to show in errors
     .check_set_caller("sits_tuning")
-
     # pre-conditions
     # check samples
     .check_samples_train(samples)
@@ -122,19 +114,16 @@ sits_tuning <- function(samples,
     # check trials
     .check_int_parameter(trials)
     # check 'multicores' parameter
-    .check_multicores(multicores)
-
+    .check_multicores(multicores, min = 1, max = 2048)
     # generate random params
     params_lst <- purrr::map(
         as.list(seq_len(trials)),
         .tuning_pick_random,
         params = params
     )
-
     # start processes
     .parallel_start(workers = multicores)
     on.exit(.parallel_stop())
-
     # validate in parallel
     result_lst <- .parallel_map(params_lst, function(params) {
         # Prepare parameters
@@ -169,10 +158,8 @@ sits_tuning <- function(samples,
     tuning_tb <- dplyr::arrange(tuning_tb, dplyr::desc(.data[["accuracy"]]))
     # prepare result class
     class(tuning_tb) <- c("sits_tuned", class(tuning_tb))
-
     return(tuning_tb)
 }
-
 #' @title Tuning machine learning models hyper-parameters
 #' @name sits_tuning_hparams
 #'
@@ -181,8 +168,8 @@ sits_tuning <- function(samples,
 #' by \code{sits_tuning()} function search randomly the best parameter
 #' combination.
 #'
-#' User should pass the possible values for hyper-parameters as
-#' constant or by calling the following random functions:
+#' Users should pass the possible values for hyper-parameters as
+#' constants or by calling the following random functions:
 #'
 #' \itemize{
 #'   \item \code{uniform(min = 0, max = 1, n = 1)}: returns random numbers

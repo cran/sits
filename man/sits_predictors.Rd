@@ -7,7 +7,7 @@
 sits_predictors(samples)
 }
 \arguments{
-\item{samples}{Time series in sits format}
+\item{samples}{Time series in sits format (tibble of class "sits")}
 }
 \value{
 The predictors for the sample: a data.frame with one row per sample.
@@ -16,16 +16,12 @@ The predictors for the sample: a data.frame with one row per sample.
 Predictors are X-Y values required for machine learning
 algorithms, organized as a data table where each row corresponds
 to a training sample. The first two columns of the predictors table
-are categorical ("label_id" and "label"). The other columns are
+are categorical (\code{label_id} and \code{label}). The other columns are
 the values of each band and time, organized first by band and then by time.
-}
-\note{
-Please refer to the sits documentation available in
-<https://e-sensing.github.io/sitsbook/> for detailed examples.
 }
 \examples{
 if (sits_run_examples()) {
-     pred <- sits_predictors(samples_modis_ndvi)
+    pred <- sits_predictors(samples_modis_ndvi)
 }
 
 }

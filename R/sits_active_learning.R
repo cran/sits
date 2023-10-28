@@ -13,20 +13,20 @@
 #' These points don't have labels and need be manually labelled by experts
 #' and then used to increase the classification's training set.
 #'
-#' This function is best used in the following context
-#' \itemize{
-#'    \item{1. }{Select an initial set of samples.}
-#'    \item{2. }{Train a machine learning model.}
-#'    \item{3. }{Build a data cube and classify it using the model.}
-#'    \item{4. }{Run a Bayesian smoothing in the resulting probability cube.}
-#'    \item{5. }{Create an uncertainty cube.}
-#'    \item{6. }{Perform uncertainty sampling.}
-#' }
+#' This function is best used in the following context:
+#'  1. Select an initial set of samples.
+#'  2. Train a machine learning model.
+#'  3. Build a data cube and classify it using the model.
+#'  4. Run a Bayesian smoothing in the resulting probability cube.
+#'  5. Create an uncertainty cube.
+#'  6. Perform uncertainty sampling.
+#'
 #' The Bayesian smoothing procedure will reduce the classification outliers
 #' and thus increase the likelihood that the resulting pixels with high
 #' uncertainty have meaningful information.
 #'
-#' @param uncert_cube     An uncertainty cube. See \code{sits_uncertainty}.
+#' @param uncert_cube     An uncertainty cube.
+#'                        See \code{\link[sits]{sits_uncertainty}}.
 #' @param n               Number of suggested points.
 #' @param min_uncert      Minimum uncertainty value to select a sample.
 #' @param sampling_window Window size for collecting points (in pixels).
@@ -60,31 +60,33 @@
 #'     # create an uncertainty cube
 #'     uncert_cube <- sits_uncertainty(probs_cube,
 #'         type = "entropy",
-#'         output_dir = tempdir())
+#'         output_dir = tempdir()
+#'     )
 #'     # obtain a new set of samples for active learning
 #'     # the samples are located in uncertain places
 #'     new_samples <- sits_uncertainty_sampling(
-#'         uncert_cube, n = 10, min_uncert = 0.4)
+#'         uncert_cube,
+#'         n = 10, min_uncert = 0.4
+#'     )
 #' }
 #'
 #' @export
 #'
 sits_uncertainty_sampling <- function(uncert_cube,
-                                      n = 100,
+                                      n = 100L,
                                       min_uncert = 0.4,
-                                      sampling_window = 10) {
-
+                                      sampling_window = 10L) {
     .check_set_caller("sits_uncertainty_sampling")
 
     # Pre-conditions
     .check_is_uncert_cube(uncert_cube)
     .check_int_parameter(n, min = 1, max = 10000)
     .check_num_parameter(min_uncert, min = 0.2, max = 1.0)
-    .check_int_parameter(sampling_window, min = 10)
+    .check_int_parameter(sampling_window, min = 10L)
 
     # Slide on cube tiles
     samples_tb <- slider::slide_dfr(uncert_cube, function(tile) {
-        path <-  .tile_path(tile)
+        path <- .tile_path(tile)
         # Get a list of values of high uncertainty
         top_values <- .raster_open_rast(path) |>
             .raster_get_top_values(
@@ -105,7 +107,7 @@ sits_uncertainty_sampling <- function(uncert_cube,
             tibble::as_tibble()
         # All the cube's uncertainty images have the same start & end dates.
         top_values[["start_date"]] <- .tile_start_date(tile)
-        top_values[["end_date"]]   <- .tile_end_date(tile)
+        top_values[["end_date"]] <- .tile_end_date(tile)
         top_values[["label"]] <- "NoClass"
 
         return(top_values)
@@ -127,9 +129,12 @@ sits_uncertainty_sampling <- function(uncert_cube,
         )
 
     # Warn if it cannot suggest all required samples
-    if (nrow(result_tb) < n)
+    if (nrow(result_tb) < n) {
         warning("unable to suggest ", n, " samples.\n",
-                "(try a smaller sampling_window parameter)", call. = FALSE)
+            "(try a smaller sampling_window parameter)",
+            call. = FALSE
+        )
+    }
 
     class(result_tb) <- c("sits_uncertainty", "sits", class(result_tb))
     return(result_tb)
@@ -153,21 +158,20 @@ sits_uncertainty_sampling <- function(uncert_cube,
 #' this label compared to all others. The algorithm also considers a
 #' minimum distance between new labels, to minimize spatial autocorrelation
 #' effects.
+#' This function is best used in the following context:
+#'  1. Select an initial set of samples.
+#'  2. Train a machine learning model.
+#'  3. Build a data cube and classify it using the model.
+#'  4. Run a Bayesian smoothing in the resulting probability cube.
+#'  5. Perform confidence sampling.
 #'
-#' This function is best used in the following context
-#' \itemize{
-#'    \item{1. }{Select an initial set of samples.}
-#'    \item{2. }{Train a machine learning model.}
-#'    \item{3. }{Build a data cube and classify it using the model.}
-#'    \item{4. }{Run a Bayesian smoothing in the resulting probability cube.}
-#'    \item{5. }{Create an uncertainty cube.}
-#'    \item{6. }{Perform confidence sampling.}
-#' }
 #' The Bayesian smoothing procedure will reduce the classification outliers
 #' and thus increase the likelihood that the resulting pixels with provide
 #' good quality samples for each class.
 #'
-#' @param probs_cube      A probability cube. See \code{sits_classify}.
+#' @param probs_cube      A smoothed probability cube.
+#'                        See \code{\link[sits]{sits_classify}} and
+#'                        \code{\link[sits]{sits_smooth}}.
 #' @param n               Number of suggested points per class.
 #' @param min_margin      Minimum margin of confidence to select a sample
 #' @param sampling_window Window size for collecting points (in pixels).
@@ -200,10 +204,9 @@ sits_uncertainty_sampling <- function(uncert_cube,
 #' }
 #' @export
 sits_confidence_sampling <- function(probs_cube,
-                                     n = 20,
+                                     n = 20L,
                                      min_margin = .90,
-                                     sampling_window = 10) {
-
+                                     sampling_window = 10L) {
     .check_set_caller("sits_confidence_sampling")
 
     # Pre-conditions
@@ -222,7 +225,6 @@ sits_confidence_sampling <- function(probs_cube,
 
         # Get samples for each label
         purrr::map2_dfr(labels, seq_along(labels), function(lab, i) {
-
             # Get a list of values of high confidence & apply threshold
             top_values <- r_obj |>
                 .raster_get_top_values(
@@ -245,7 +247,7 @@ sits_confidence_sampling <- function(probs_cube,
             # All the cube's uncertainty images have the same start &
             # end dates.
             top_values[["start_date"]] <- .tile_start_date(tile)
-            top_values[["end_date"]]   <- .tile_end_date(tile)
+            top_values[["end_date"]] <- .tile_end_date(tile)
             top_values[["label"]] <- lab
 
             return(top_values)
@@ -275,13 +277,16 @@ sits_confidence_sampling <- function(probs_cube,
         dplyr::filter(.data[["n"]] < !!n) |>
         dplyr::pull("label")
 
-    if (length(incomplete_labels) > 0)
+    if (length(incomplete_labels) > 0) {
         warning(sprintf(
-            paste("Unable to suggest %s samples for label(s) %s.",
-                  "Try a smaller sampling_window or a",
-                  "smaller min_margin parameter."),
+            paste(
+                "Unable to suggest %s samples for label(s) %s.",
+                "Try a smaller sampling_window or a",
+                "smaller min_margin parameter."
+            ),
             n, paste0("'", incomplete_labels, "'", collapse = ", ")
         ), call. = FALSE)
+    }
 
     class(result_tb) <- c("sits_confidence", "sits", class(result_tb))
     return(result_tb)

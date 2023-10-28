@@ -6,13 +6,14 @@
 \usage{
 sits_uncertainty_sampling(
   uncert_cube,
-  n = 100,
+  n = 100L,
   min_uncert = 0.4,
-  sampling_window = 10
+  sampling_window = 10L
 )
 }
 \arguments{
-\item{uncert_cube}{An uncertainty cube. See \code{sits_uncertainty}.}
+\item{uncert_cube}{An uncertainty cube.
+See \code{\link[sits]{sits_uncertainty}}.}
 
 \item{n}{Number of suggested points.}
 
@@ -32,15 +33,14 @@ The function selects data points that have confused an algorithm.
 These points don't have labels and need be manually labelled by experts
 and then used to increase the classification's training set.
 
-This function is best used in the following context
-\itemize{
-   \item{1. }{Select an initial set of samples.}
-   \item{2. }{Train a machine learning model.}
-   \item{3. }{Build a data cube and classify it using the model.}
-   \item{4. }{Run a Bayesian smoothing in the resulting probability cube.}
-   \item{5. }{Create an uncertainty cube.}
-   \item{6. }{Perform uncertainty sampling.}
-}
+This function is best used in the following context:
+ 1. Select an initial set of samples.
+ 2. Train a machine learning model.
+ 3. Build a data cube and classify it using the model.
+ 4. Run a Bayesian smoothing in the resulting probability cube.
+ 5. Create an uncertainty cube.
+ 6. Perform uncertainty sampling.
+
 The Bayesian smoothing procedure will reduce the classification outliers
 and thus increase the likelihood that the resulting pixels with high
 uncertainty have meaningful information.
@@ -63,11 +63,14 @@ if (sits_run_examples()) {
     # create an uncertainty cube
     uncert_cube <- sits_uncertainty(probs_cube,
         type = "entropy",
-        output_dir = tempdir())
+        output_dir = tempdir()
+    )
     # obtain a new set of samples for active learning
     # the samples are located in uncertain places
     new_samples <- sits_uncertainty_sampling(
-        uncert_cube, n = 10, min_uncert = 0.4)
+        uncert_cube,
+        n = 10, min_uncert = 0.4
+    )
 }
 
 }

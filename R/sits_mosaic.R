@@ -1,5 +1,4 @@
 #' @title Mosaic classified cubes
-#'
 #' @name sits_mosaic
 #'
 #' @author Felipe Carvalho, \email{felipe.carvalho@@inpe.br}
@@ -31,8 +30,9 @@
 #' @note
 #'  The "roi" parameter defines a region of interest. It can be
 #'  an sf_object, a shapefile, or a bounding box vector with
-#'  named XY values ("xmin", "xmax", "ymin", "ymax") or
-#'  named lat/long values ("lon_min", "lat_min", "lon_max", "lat_max")
+#'  named XY values (\code{xmin}, \code{xmax}, \code{ymin}, \code{ymax}) or
+#'  named lat/long values (\code{lon_min}, \code{lon_max},
+#'    \code{lat_min}, \code{lat_max}).
 #'
 #'  The user should specify the crs of the mosaic since in many cases the
 #'  input images will be in different coordinate systems. For example,
@@ -58,16 +58,20 @@
 #'     bayes_cube <- sits_smooth(probs_cube, output_dir = tempdir())
 #'     # label the probability cube
 #'     label_cube <- sits_label_classification(
-#'         bayes_cube, output_dir = tempdir()
+#'         bayes_cube,
+#'         output_dir = tempdir()
 #'     )
 #'     # create roi
 #'     roi <- sf::st_sfc(
 #'         sf::st_polygon(
-#'           list(rbind(
-#'             c(-55.64768, -11.68649),
-#'             c(-55.69654, -11.66455),
-#'             c(-55.62973, -11.61519),
-#'             c(-55.64768, -11.68649)))), crs = "EPSG:4326"
+#'             list(rbind(
+#'                 c(-55.64768, -11.68649),
+#'                 c(-55.69654, -11.66455),
+#'                 c(-55.62973, -11.61519),
+#'                 c(-55.64768, -11.68649)
+#'             ))
+#'         ),
+#'         crs = "EPSG:4326"
 #'     )
 #'     # crop and mosaic classified image
 #'     mosaic_cube <- sits_mosaic(
@@ -89,11 +93,12 @@ sits_mosaic <- function(cube,
     # Pre-conditions
     .check_is_raster_cube(cube)
     .check_crs(crs)
-    .check_multicores(multicores)
+    .check_multicores(multicores, min = 1, max = 2048)
     .check_output_dir(output_dir)
-    .check_version(version)
+    version <- .check_version(version)
     .check_progress(progress)
-
+    # version is case-insensitive in sits
+    version <- tolower(version)
     # Spatial filter
     if (.has(roi)) {
         roi <- .roi_as_sf(roi)
@@ -102,7 +107,6 @@ sits_mosaic <- function(cube,
     # Prepare parallel processing
     .parallel_start(workers = multicores)
     on.exit(.parallel_stop(), add = TRUE)
-
     # Create assets as jobs
     cube_assets <- .cube_split_assets(cube)
     # Process each asset in parallel

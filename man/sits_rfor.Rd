@@ -7,11 +7,13 @@
 sits_rfor(samples = NULL, num_trees = 100, mtry = NULL, ...)
 }
 \arguments{
-\item{samples}{Time series with the training samples.}
+\item{samples}{Time series with the training samples
+(tibble of class "sits").}
 
 \item{num_trees}{Number of trees to grow. This should not be set to too
-small a number, to ensure that every input row gets predicted
-at least a few times (default: 100).}
+small a number, to ensure that every input
+row gets predicted at least a few times (default: 100)
+(integer, min = 50, max = 150).}
 
 \item{mtry}{Number of variables randomly sampled as candidates at
 each split (default: NULL - use default value of
@@ -27,12 +29,8 @@ Model fitted to input data
 }
 \description{
 Use Random Forest algorithm to classify samples.
-This function is a front-end to the "randomForest" package.
+This function is a front-end to the \code{randomForest} package.
 Please refer to the documentation in that package for more details.
-}
-\note{
-Please refer to the sits documentation available in
-<https://e-sensing.github.io/sitsbook/> for detailed examples.
 }
 \examples{
 if (sits_run_examples()) {
@@ -40,7 +38,8 @@ if (sits_run_examples()) {
     # Retrieve the samples for Mato Grosso
     # train a random forest model
     rf_model <- sits_train(samples_modis_ndvi,
-                           ml_method = sits_rfor(mtry = 20))
+        ml_method = sits_rfor(mtry = 20)
+    )
     # classify the point
     point_ndvi <- sits_select(point_mt_6bands, bands = "NDVI")
     # classify the point

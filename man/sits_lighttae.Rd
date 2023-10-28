@@ -7,29 +7,32 @@
 sits_lighttae(
   samples = NULL,
   samples_validation = NULL,
-  epochs = 150,
-  batch_size = 128,
+  epochs = 150L,
+  batch_size = 128L,
   validation_split = 0.2,
-  optimizer = torchopt::optim_adamw,
+  optimizer = torch::optim_adamw,
   opt_hparams = list(lr = 0.005, eps = 1e-08, weight_decay = 1e-06),
-  lr_decay_epochs = 50,
+  lr_decay_epochs = 50L,
   lr_decay_rate = 1,
-  patience = 20,
+  patience = 20L,
   min_delta = 0.01,
   verbose = FALSE
 )
 }
 \arguments{
-\item{samples}{Time series with the training samples.}
+\item{samples}{Time series with the training samples
+(tibble of class "sits").}
 
-\item{samples_validation}{Time series with the validation samples. if the
-\code{samples_validation} parameter is provided,
-the \code{validation_split}
-parameter is ignored.}
+\item{samples_validation}{Time series with the validation samples
+(tibble of class "sits").
+If \code{samples_validation} parameter is provided,
+\code{validation_split} is ignored.}
 
-\item{epochs}{Number of iterations to train the model.}
+\item{epochs}{Number of iterations to train the model
+(integer, min = 1, max = 20000).}
 
-\item{batch_size}{Number of samples per gradient update.}
+\item{batch_size}{Number of samples per gradient update
+(integer, min = 16L, max = 2048L)}
 
 \item{validation_split}{Fraction of training data
 to be used as validation data.}
@@ -37,10 +40,10 @@ to be used as validation data.}
 \item{optimizer}{Optimizer function to be used.}
 
 \item{opt_hparams}{Hyperparameters for optimizer:
-lr : Learning rate of the optimizer
-eps: Term added to the denominator
+\code{lr} : Learning rate of the optimizer
+\code{eps}: Term added to the denominator
      to improve numerical stability.
-weight_decay:       L2 regularization}
+\code{weight_decay}:       L2 regularization rate.}
 
 \item{lr_decay_epochs}{Number of epochs to reduce learning rate.}
 
@@ -70,10 +73,6 @@ We also used the code made available by Maja Schneider in her work with
 Marco Körner referenced below and available at
 https://github.com/maja601/RC2020-psetae.
 }
-\note{
-Please refer to the sits documentation available in
-<https://e-sensing.github.io/sitsbook/> for detailed examples.
-}
 \examples{
 if (sits_run_examples()) {
     # create a lightTAE model
@@ -99,7 +98,8 @@ if (sits_run_examples()) {
     plot(bayes_cube)
     # label the probability cube
     label_cube <- sits_label_classification(
-        bayes_cube, output_dir = tempdir()
+        bayes_cube,
+        output_dir = tempdir()
     )
     # plot the labelled cube
     plot(label_cube)
@@ -125,9 +125,9 @@ ReScience C 7 (2), 2021.
 DOI: 10.5281/zenodo.4835356
 }
 \author{
-Charlotte Pelletier, \email{charlotte.pelletier@univ-ubs.fr}
-
 Gilberto Camara, \email{gilberto.camara@inpe.br}
 
 Rolf Simoes, \email{rolf.simoes@inpe.br}
+
+Charlotte Pelletier, \email{charlotte.pelletier@univ-ubs.fr}
 }
