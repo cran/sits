@@ -1,4 +1,4 @@
-09c40268b06f94fd406ae94678b69405 *DESCRIPTION
+6b16d12c098867f11dccc80f578b9b07 *DESCRIPTION
 7f3df05b630b0787b5ec0605a5496850 *NAMESPACE
 554d151b27220e65ad6c35fe849891f6 *NEWS.md
 0f8e3f9d93229e10716dada91fec41c0 *R/RcppExports.R
@@ -11,7 +11,7 @@ f1fda90778a7f10400d22c3ae15de95b *R/api_block.R
 8c591a324cc3b8a68f4ca1b8eb644608 *R/api_check.R
 7d2d95cda69ae48a1a7c2fdbd6be6684 *R/api_chunks.R
 aaadd6b6ea36d3a86fa7764d9351aa8f *R/api_classify.R
-692ecc12d436fa3c98826403ee28e30a *R/api_clean.R
+21760b46a73b2de08801bd9bc9b5e82c *R/api_clean.R
 82e0af5a79c0a43ad56334d10bf9353d *R/api_cluster.R
 ef4ab54c9914e29286dfbac2eba9a5af *R/api_colors.R
 7653a17240ff18f402e9d6b4af4e3d65 *R/api_combine_predictions.R
@@ -23,13 +23,13 @@ ef4ab54c9914e29286dfbac2eba9a5af *R/api_colors.R
 80ccbcba2566dff329d24388dd236bd4 *R/api_debug.R
 d567514f33cf19d9696b833c89507dac *R/api_download.R
 f18803835856e514abdef6f559b1636f *R/api_factory.R
-c553199da34a399e6252ad60d11d1dc5 *R/api_file.R
-6ce9f132ae0c1e26ee053e7d031f007b *R/api_file_info.R
+b333b90f09bdc5c97eb09dfa67f5277d *R/api_file.R
+807ef6ef9e9d3e93a6de956e30af0c4c *R/api_file_info.R
 b1d4032ab6d0d1c441eaf07fe15df843 *R/api_gdal.R
 5bc5e29f41f879974aa45c11b8bc2a9c *R/api_gdalcubes.R
 10bca971affe475dd5adc82e57ea19bf *R/api_imputation.R
 3bf7b6923bfae05dda663bdaec480917 *R/api_jobs.R
-6060a5df28448030c2387e5c146374ad *R/api_label_class.R
+7f5c1835b19cce2a4d240615d3500291 *R/api_label_class.R
 244bb4362f6ee93d6194f653ad0f854b *R/api_mixture_model.R
 9352a40b226e19033cbcb0e9e0e34bbf *R/api_ml_model.R
 9404099236bf2a6eb6f329158192d784 *R/api_mosaic.R
@@ -48,7 +48,7 @@ b98e906ded2ecb5caceb5366c49c9600 *R/api_raster_sub_image.R
 74281dd86c97a8daad25cb85b140c8f2 *R/api_roi.R
 3905b7b0be0e5b0d488b1dc3c6e41032 *R/api_s2tile.R
 0b545971569ba77b396d3a779387e4b3 *R/api_samples.R
-25994eae8c8fd81718ab906594ba207c *R/api_segments.R
+3fb989d73709322e6d5c1b5f22c9dafe *R/api_segments.R
 47627dee6295883cd17b92bbf57bf47d *R/api_sf.R
 424836f07ebd1e35940fc28571ab7e34 *R/api_shp.R
 247ef8f21f34687ec4986df0b15ff1db *R/api_signal.R
@@ -70,7 +70,7 @@ a7c50fa297f998a15a1abf33f5ed7210 *R/api_source_stac.R
 812e61cc1c9184aef53e7e1655e41535 *R/api_stats.R
 1f303065f801c986d3c2a8bd4f0f5abf *R/api_summary.R
 bccead265ffc8d42c2deba876a31b218 *R/api_tibble.R
-e96f5002157dcaabd2cd97d649d1c7c1 *R/api_tile.R
+e2f19e5b3334e85db45ba9acdc7bc7c0 *R/api_tile.R
 33cf6f1983eba0664e84539f960c6286 *R/api_timeline.R
 6673c89b3c6e32d4e46331707e782229 *R/api_torch.R
 f18f3478af876f0db35f16a5d1aee29f *R/api_torch_psetae.R
@@ -87,10 +87,10 @@ d879199035d02d4bbb808f484ea3568b *R/data.R
 480122d976af615d845edfa18bd500bd *R/sits-package.R
 04c4b52b9afd31de8ae4088209f478e6 *R/sits_accuracy.R
 82f97a552ef94fb976e72728da5ee469 *R/sits_active_learning.R
-b70b09d0e4e4557d1287cf1ca48b56a5 *R/sits_apply.R
+243684b99ae6f607a605a78cfbbe9818 *R/sits_apply.R
 d60f9237ae45232453f2426b519db226 *R/sits_bands.R
 91830d027f44d7c07da482f26a60d895 *R/sits_bbox.R
-ac985ac04ea17c93f230b2b22da348ce *R/sits_classify.R
+760bf52e2405d64b48e2bccb1830d0dd *R/sits_classify.R
 d0b65dc7f88823d6293e7bf550c80529 *R/sits_cluster.R
 eafd6c36d74848d4bfb80a4a83380bbd *R/sits_colors.R
 dad911a0471049e984ae6bf117cf952a *R/sits_combine_predictions.R
@@ -102,7 +102,7 @@ b9e02669155b0d4caf4deb029439fc2f *R/sits_cube_copy.R
 605676b912bb2a80002162b493ce05ec *R/sits_filters.R
 4a0016c51f8b02f9eb6b4ac15e875572 *R/sits_geo_dist.R
 b43758d5cb490fa220e659bb4a68f7d2 *R/sits_get_data.R
-5a3f3f6429432288de124fcad49aaaf9 *R/sits_label_classification.R
+268d1836db9770ed360e868fd6c60355 *R/sits_label_classification.R
 12af4b69d8885b7d1c2546ddfb96624a *R/sits_labels.R
 fe400d3abd0180087e7911dbb5d3b6a6 *R/sits_lighttae.R
 5944e682597fd3cc05b9d48f54478af5 *R/sits_machine_learning.R
@@ -112,13 +112,13 @@ d3e8d639cfac30ba55d95577a90fb477 *R/sits_mlp.R
 79699ab2e496306b2a70ca6244aee95d *R/sits_model_export.R
 85cf0a679f77830c44cdf98164215664 *R/sits_mosaic.R
 593f04dcf35fb6a4668f9a4c6234dcdc *R/sits_patterns.R
-068c6784f5cebaee54e5dc4ea0ba06ea *R/sits_plot.R
+7b7b8e4b8516d5a745355c80e7622602 *R/sits_plot.R
 76905b2046545f17f396a952bd61ef8b *R/sits_predictors.R
 ec4156e4d2d9650ab79b0f4a86799270 *R/sits_reclassify.R
 e4348da10c5ea3fc7b6a01d1877e5731 *R/sits_regularize.R
 2904dcfae9567c86e80cf1af0e8de128 *R/sits_resnet.R
-67f14f721def369054e7e029d696841c *R/sits_sample_functions.R
-547c7659baff89b786717aaf97d3a20b *R/sits_segmentation.R
+b4a574d9d8559a0022b8f3c75cef92b0 *R/sits_sample_functions.R
+8d74679b04318fd9db305821fc11cb2a *R/sits_segmentation.R
 cb8526ba8fccec72b22caa43783747a9 *R/sits_select.R
 d9d9183af06707e85eaf01415ba31a7e *R/sits_sf.R
 a87a74105575b9db83e130483bc1ca42 *R/sits_smooth.R
@@ -216,7 +216,7 @@ d4e8d978f9a9cb716692d32a0e3ac800 *man/plot.som_map.Rd
 a409b472986c382366e43349df9af7fd *man/plot.uncertainty_cube.Rd
 9406618e636a5adfdaf083d48687516a *man/plot.variance_cube.Rd
 962682035fbb315aa95c20f1aed2a3c5 *man/plot.vector_cube.Rd
-e1ea9d01ad009c3264c432547f5faf83 *man/plot.xgb_model.Rd
+73ff32f0477afcb4824315784a32e01c *man/plot.xgb_model.Rd
 a066ad5e38097c5d591da3a83e2fee66 *man/point_mt_6bands.Rd
 7570e9a8451407a46eb09daa35ee9b12 *man/print.sits_accuracy.Rd
 9b72ad1a44b92cd5a2eba4ed0c121357 *man/print.sits_area_accuracy.Rd
@@ -229,7 +229,7 @@ aba55e9a2c1df4205f045179e18c6862 *man/sits_accuracy_summary.Rd
 d70015b5aaac17fdfa85a07eaf029409 *man/sits_as_sf.Rd
 2857cc6ba60d4de020dcd2cd64ec8055 *man/sits_bands.Rd
 28b84219e95c17e20eef4ebb513c1b4b *man/sits_bbox.Rd
-012f2d77655815aaeca1415b4627de35 *man/sits_classify.Rd
+c0b068f77381c9a2ab567bc6883e8cc1 *man/sits_classify.Rd
 5658dfec4a6fcff2aeaf7bfdfc903a11 *man/sits_cluster_clean.Rd
 638910dc4135503d697531ca89000428 *man/sits_cluster_dendro.Rd
 f3e741ed406e3791d5d6e7d12d583756 *man/sits_cluster_frequency.Rd
@@ -279,7 +279,7 @@ a8a066e4a754dbaa454e23ebbfab6c1f *man/sits_segment.Rd
 c43020ab4372ee71bb0cfcd2b22e371c *man/sits_select.Rd
 16947326c453747f58b53af555270312 *man/sits_sgolay.Rd
 75b65521ae0f1f7e5a1c0c69796b8623 *man/sits_show_prediction.Rd
-2712d9579f1f40c6267071b9db3a9766 *man/sits_slic.Rd
+a052e361ef4c2ca16db9b853b3973446 *man/sits_slic.Rd
 003f4152b00f560fe79be9f77c0ceca3 *man/sits_smooth.Rd
 a0b8d99a56ee1280dc19c679eaff9a32 *man/sits_som.Rd
 1bbee32c7c4039e0c8d51edc805b6ef0 *man/sits_som_clean_samples.Rd
