@@ -7,11 +7,12 @@
 \method{plot}{probs_vector_cube}(
   x,
   ...,
-  tile = x$tile[[1]],
+  tile = x[["tile"]][[1]],
   labels = NULL,
-  palette = "YlGnBu",
+  palette = "YlGn",
+  style = "cont",
   rev = FALSE,
-  tmap_options = NULL
+  scale = 0.8
 )
 }
 \arguments{
@@ -25,15 +26,13 @@
 
 \item{palette}{RColorBrewer palette}
 
+\item{style}{Method to process the color scale
+("cont", "order", "quantile", "fisher",
+ "jenks", "log10")}
+
 \item{rev}{Reverse order of colors in palette?}
 
-\item{tmap_options}{List with optional tmap parameters
-tmap_max_cells (default: 1e+06)
-tmap_graticules_labels_size (default: 0.7)
-tmap_legend_title_size (default: 1.5)
-tmap_legend_text_size (default: 1.2)
-tmap_legend_bg_color (default: "white")
-tmap_legend_bg_alpha (default: 0.5)}
+\item{scale}{Scale to plot map (0.4 to 1.0)}
 }
 \value{
 A plot containing probabilities associated

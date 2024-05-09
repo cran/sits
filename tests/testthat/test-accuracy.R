@@ -10,8 +10,8 @@ test_that("conf_matrix -2 classes", {
         progress = FALSE
     )
     invisible(capture.output(acc <- sits_accuracy(points_class)))
-    expect_true(acc$overall["Accuracy"] > 0.90)
-    expect_true(acc$overall["Kappa"] > 0.90)
+    expect_gt(acc[["overall"]][["Accuracy"]], 0.90)
+    expect_gt(acc[["overall"]][["Kappa"]], 0.90)
     p <- capture.output(sits_accuracy_summary(acc))
     expect_true(grepl("Accuracy", p[2]))
 
@@ -132,14 +132,14 @@ test_that("Accuracy areas", {
 
     expect_true(as.numeric(as$area_pixels["Forest"]) >
         as$area_pixels["Pasture"])
-    expect_equal(as.numeric(as$accuracy$overall),
+    expect_identical(as.numeric(as$accuracy$overall),
         expected = 0.75,
         tolerance = 0.5
     )
 
     p1 <- capture.output(as)
 
-    expect_true(grepl("Area Weigthed Statistics", p1[1]))
+    expect_true(grepl("Area Weighted Statistics", p1[1]))
     expect_true(grepl("Overall Accuracy", p1[2]))
     expect_true(grepl("Cerrado", p1[6]))
     expect_true(grepl("Mapped Area", p1[11]))
@@ -200,7 +200,8 @@ test_that("Accuracy areas when samples labels do not match cube labels", {
         ),
         output_dir = tempdir(),
         multicores = 1,
-        memsize = 4
+        memsize = 4,
+        version = "reclass"
     )
 
     acc <- sits_accuracy(

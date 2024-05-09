@@ -1,19 +1,19 @@
 # ---- gdal API ----
 
 .gdal_data_type <- c(
-    "INT1U" = "Byte", "INT2U" = "UInt16", "INT2S" = "Int16",
-    "INT4U" = "UInt32", "INT4S" = "Int32", "FLT4S" = "Float32",
-    "FLT8S" = "Float64"
+    INT1U = "Byte", INT2U = "UInt16", INT2S = "Int16",
+    INT4U = "UInt32", INT4S = "Int32", FLT4S = "Float32",
+    FLT8S = "Float64"
 )
 #' @title Get GDAL parameters
 #' @noRd
 #' @param params   Params used to describe GDAL file
 #' @returns        Cleaned GDAL parameters
 .gdal_params <- function(params) {
+    .check_set_caller(".gdal_params")
     # Check if parameters are named
-    if (!all(.has_name(params))) {
-        stop("parameters should be named")
-    }
+    .check_that(all(.has_name(params)))
+
     unlist(mapply(function(par, val) {
         if (is.null(val)) {
             NULL
@@ -92,6 +92,25 @@
     )
     return(invisible(file))
 }
+#' @title Run gdal_warp for SAR GRD files
+#' @noRd
+#' @param raster_file  File to be copied from (with path)
+#' @param size         Size of output file
+#' @returns            Name of output file
+.gdal_warp_grd <- function(raster_file, size) {
+    temp_file <- tempfile(fileext = ".tif")
+    .gdal_warp(
+        file = temp_file,
+        base_files = raster_file,
+        params = list(
+            "-ts" = list(size[["xsize"]], size[["ysize"]]),
+            "-multi" = FALSE,
+            "-q" = TRUE,
+            "-overwrite" = FALSE
+        ),
+        quiet = TRUE)
+    return(temp_file)
+}
 #' @title Run gdal_addo
 #' @noRd
 #' @param base_file   Base file to be processed
@@ -103,7 +122,7 @@
             file = base_file,
             method = conf_cog[["method"]],
             overviews = conf_cog[["overviews"]],
-            options = c("GDAL_NUM_THREADS" = "2")
+            options = c(GDAL_NUM_THREADS = "2")
         )
     )
     return(invisible(file))
@@ -129,7 +148,7 @@
             .gdal_translate(
                 file = file,
                 # GDAL does not allow raster creation, to bypass this limitation
-                # Let's base our raster creation by using a tiny template
+                # We base our raster creation by using a tiny template
                 # (647 Bytes)
                 base_file = system.file(
                     "extdata/raster/gdal/template.tif",
@@ -188,7 +207,7 @@
                     base_files = base_files,
                     params = list(
                         "-wo" = paste0("NUM_THREADS=", multicores),
-                        "-multi" = TRUE,
+                        "-multi" = FALSE,
                         "-cutline" = roi_file,
                         "-q" = TRUE,
                         "-overwrite" = FALSE
@@ -201,7 +220,7 @@
                     base_files = base_files,
                     params = list(
                         "-wo" = paste0("NUM_THREADS=", multicores),
-                        "-multi" = TRUE,
+                        "-multi" = FALSE,
                         "-q" = TRUE,
                         "-overwrite" = FALSE
                     ),
@@ -234,8 +253,8 @@
 .gdal_crop_image <- function(file,
                              out_file,
                              roi_file,
-                             as_crs = NULL,
-                             miss_value = NULL,
+                             as_crs,
+                             miss_value,
                              data_type,
                              multicores = 1,
                              overwrite = TRUE) {
@@ -244,7 +263,7 @@
         "-of" = .conf("gdal_presets", "image", "of"),
         "-co" = .conf("gdal_presets", "image", "co"),
         "-wo" = paste0("NUM_THREADS=", multicores),
-        "-multi" = TRUE,
+        "-multi" = FALSE,
         "-t_srs" = as_crs,
         "-cutline" = roi_file,
         "-dstnodata" = miss_value,
@@ -307,7 +326,7 @@
         "-of" = .conf("gdal_presets", "image", "of"),
         "-co" = .conf("gdal_presets", "image", "co"),
         "-wo" = paste0("NUM_THREADS=", multicores),
-        "-multi" = TRUE,
+        "-multi" = FALSE,
         "-s_srs" = crs,
         "-t_srs" = as_crs,
         "-srcnodata" = miss_value,

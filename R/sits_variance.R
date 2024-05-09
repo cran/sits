@@ -56,16 +56,18 @@ sits_variance <- function(
         multicores = 2L,
         output_dir,
         version = "v1") {
+    # set caller for error messages
+    .check_set_caller("sits_variance")
     # Check if cube has data and metadata
-    .check_cube_files(cube)
+    .check_raster_cube_files(cube)
     # check window size
-    .check_window_size(window_size, min = 3, max = 33)
+    .check_int_parameter(window_size, min = 3, max = 33, is_odd = TRUE)
     # check neighborhood fraction
     .check_num_parameter(neigh_fraction, min = 0., max = 1.0)
     # Check memsize
-    .check_memsize(memsize, min = 1, max = 16384)
+    .check_int_parameter(memsize, min = 1, max = 16384)
     # Check multicores
-    .check_multicores(multicores, min = 1, max = 2048)
+    .check_int_parameter(multicores, min = 1, max = 2048)
     # check output_dir
     .check_output_dir(output_dir)
     # check version
@@ -126,40 +128,41 @@ sits_variance.probs_cube <- function(
 }
 #' @rdname sits_variance
 #' @export
-sits_variance.raster_cube <- function(cube, window_size = 7L,
+sits_variance.raster_cube <- function(cube,
+                                      window_size = 7L,
                                       neigh_fraction = 0.5,
-                                      memsize = 4L, multicores = 2L,
-                                      output_dir, version = "v1") {
-    stop("Input should be a probability cube")
-    return(cube)
+                                      memsize = 4L,
+                                      multicores = 2L,
+                                      output_dir,
+                                      version = "v1") {
+    stop(.conf("messages", "sits_variance_raster_cube"))
 }
 #' @rdname sits_variance
 #' @export
-sits_variance.derived_cube <- function(cube, window_size = 7L,
+sits_variance.derived_cube <- function(cube,
+                                       window_size = 7L,
                                        neigh_fraction = 0.5,
-                                       memsize = 4L, multicores = 2L,
-                                       output_dir, version = "v1") {
-    stop("Input should be a probability cube")
-    return(cube)
+                                       memsize = 4L,
+                                       multicores = 2L,
+                                       output_dir,
+                                       version = "v1") {
+    stop(.conf("messages", "sits_variance_raster_cube"))
 }
 #' @rdname sits_variance
 #' @export
-sits_variance.tbl_df <- function(cube, window_size = 7L, neigh_fraction = 0.5,
-                                 memsize = 4L, multicores = 2L,
-                                 output_dir, version = "v1") {
+sits_variance.default <- function(cube,
+                                  window_size = 7L,
+                                  neigh_fraction = 0.5,
+                                  memsize = 4L,
+                                  multicores = 2L,
+                                  output_dir,
+                                  version = "v1") {
     cube <- tibble::as_tibble(cube)
-    if (all(.conf("sits_cube_cols") %in% colnames(cube))) {
+    if (all(.conf("sits_cube_cols") %in% colnames(cube)))
         cube <- .cube_find_class(cube)
-    } else
-        stop("Input should be a data cube")
+    else
+        stop(.conf("messages", "sits_variance_raster_cube"))
     variance_cube <- sits_variance(cube, window_size, neigh_fraction,
         memsize, multicores, output_dir, version)
     return(variance_cube)
-}
-#' @rdname sits_variance
-#' @export
-sits_variance.default <- function(cube, window_size = 7L, neigh_fraction = 0.5,
-                                  memsize = 4L, multicores = 2L,
-                                  output_dir, version = "v1") {
-    stop("Input should be a probability cube")
 }

@@ -7,17 +7,19 @@
 \method{plot}{vector_cube}(
   x,
   ...,
-  band = sits_bands(x)[1],
+  band = NULL,
   red = NULL,
   green = NULL,
   blue = NULL,
-  tile = x$tile[[1]],
+  tile = x[["tile"]][[1]],
   date = NULL,
   seg_color = "black",
   line_width = 1,
   palette = "RdYlGn",
+  style = "cont",
+  n_colors = 10,
   rev = FALSE,
-  tmap_options = NULL
+  scale = 0.8
 )
 }
 \arguments{
@@ -43,15 +45,15 @@
 
 \item{palette}{An RColorBrewer palette}
 
+\item{style}{Method to process the color scale
+("cont", "order", "quantile", "fisher",
+ "jenks", "log10")}
+
+\item{n_colors}{Number of colors to be shown}
+
 \item{rev}{Reverse the color order in the palette?}
 
-\item{tmap_options}{List with optional tmap parameters
-tmap_max_cells (default: 1e+06)
-tmap_graticules_labels_size (default: 0.7)
-tmap_legend_title_size (default: 1.5)
-tmap_legend_text_size (default: 1.2)
-tmap_legend_bg_color (default: "white")
-tmap_legend_bg_alpha (default: 0.5)}
+\item{scale}{Scale to plot map (0.4 to 1.0)}
 }
 \value{
 A plot object with an RGB image

@@ -18,11 +18,13 @@ sits_get_data(
   end_date = NULL,
   label = "NoClass",
   bands = sits_bands(cube),
-  crs = 4326L,
+  crs = "EPSG:4326",
+  impute_fn = impute_linear(),
   label_attr = NULL,
   n_sam_pol = 30L,
   pol_avg = FALSE,
   pol_id = NULL,
+  sampling_type = "random",
   multicores = 2L,
   progress = TRUE
 )
@@ -34,7 +36,8 @@ sits_get_data(
   samples,
   ...,
   bands = sits_bands(cube),
-  crs = 4326L,
+  crs = "EPSG:4326",
+  impute_fn = impute_linear(),
   multicores = 2,
   progress = FALSE
 )
@@ -47,10 +50,12 @@ sits_get_data(
   start_date = NULL,
   end_date = NULL,
   bands = sits_bands(cube),
+  impute_fn = impute_linear(),
   label_attr = NULL,
   n_sam_pol = 30,
   pol_avg = FALSE,
   pol_id = NULL,
+  sampling_type = "random",
   multicores = 2,
   progress = FALSE
 )
@@ -62,11 +67,13 @@ sits_get_data(
   start_date = NULL,
   end_date = NULL,
   bands = sits_bands(cube),
+  impute_fn = impute_linear(),
   label = "NoClass",
   label_attr = NULL,
   n_sam_pol = 30,
   pol_avg = FALSE,
   pol_id = NULL,
+  sampling_type = "random",
   multicores = 2,
   progress = FALSE
 )
@@ -76,6 +83,7 @@ sits_get_data(
   samples,
   ...,
   bands = sits_bands(cube),
+  impute_fn = impute_linear(),
   multicores = 2,
   progress = FALSE
 )
@@ -88,7 +96,8 @@ sits_get_data(
   end_date = NULL,
   bands = sits_bands(cube),
   label = "NoClass",
-  crs = 4326,
+  crs = "EPSG:4326",
+  impute_fn = impute_linear(),
   multicores = 2,
   progress = FALSE
 )
@@ -119,6 +128,8 @@ a data.frame with columns "longitude" and "latitude".}
 \item{crs}{Default crs for the samples
 (character vector of length 1).}
 
+\item{impute_fn}{Imputation function to remove NA.}
+
 \item{label_attr}{Attribute in the shapefile or sf object to be used
 as a polygon label.
 (character vector of length 1).}
@@ -131,6 +142,9 @@ for POLYGON or MULTIPOLYGON shapefiles or sf objects
 
 \item{pol_id}{ID attribute for polygons
 (character vector of length 1)}
+
+\item{sampling_type}{Spatial sampling type: random, hexagonal,
+regular, or Fibonacci.}
 
 \item{multicores}{Number of threads to process the time series
 (integer, with min = 1 and max = 2048).}

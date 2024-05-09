@@ -37,6 +37,34 @@ C_kernel_modal <- function(x, ncols, nrows, band, window_size) {
     .Call(`_sits_C_kernel_modal`, x, ncols, nrows, band, window_size)
 }
 
+kohonen_dtw <- function() {
+    .Call(`_sits_kohonen_dtw`)
+}
+
+kohonen_euclidean <- function() {
+    .Call(`_sits_kohonen_euclidean`)
+}
+
+kohonen_object_distances <- function(data, numVars, numNAs, distanceFunction, weights) {
+    .Call(`_sits_kohonen_object_distances`, data, numVars, numNAs, distanceFunction, weights)
+}
+
+RcppMap <- function(data, numVars, numNAs, codes, weights, distanceFunction) {
+    .Call(`_sits_RcppMap`, data, numVars, numNAs, codes, weights, distanceFunction)
+}
+
+RcppSupersom <- function(data, codes, numVars, weights, distanceFunction, numNAs, neighbourhoodDistances, alphas, radii, numEpochs) {
+    .Call(`_sits_RcppSupersom`, data, codes, numVars, weights, distanceFunction, numNAs, neighbourhoodDistances, alphas, radii, numEpochs)
+}
+
+RcppBatchSupersom <- function(data, codes, numVars, weights, distanceFunction, numNAs, neighbourhoodDistances, radii, numEpochs) {
+    .Call(`_sits_RcppBatchSupersom`, data, codes, numVars, weights, distanceFunction, numNAs, neighbourhoodDistances, radii, numEpochs)
+}
+
+RcppParallelBatchSupersom <- function(data, codes, numVars, weights, distanceFunction, numNAs, neighbourhoodDistances, radii, numEpochs, numCores) {
+    .Call(`_sits_RcppParallelBatchSupersom`, data, codes, numVars, weights, distanceFunction, numNAs, neighbourhoodDistances, radii, numEpochs, numCores)
+}
+
 C_label_max_prob <- function(x) {
     .Call(`_sits_C_label_max_prob`, x)
 }
@@ -73,24 +101,72 @@ C_normalize_data_0 <- function(data, min, max) {
     .Call(`_sits_C_normalize_data_0`, data, min, max)
 }
 
-sample_points_inclusion <- function(polymatrix, n_sam_pol) {
-    .Call(`_sits_sample_points_inclusion`, polymatrix, n_sam_pol)
+C_temp_max <- function(mtx) {
+    .Call(`_sits_C_temp_max`, mtx)
 }
 
-sample_points_crossings <- function(polymatrix, n_sam_pol) {
-    .Call(`_sits_sample_points_crossings`, polymatrix, n_sam_pol)
+C_temp_min <- function(mtx) {
+    .Call(`_sits_C_temp_min`, mtx)
 }
 
-sample_points_bin <- function(polymatrix, n_sam_pol) {
-    .Call(`_sits_sample_points_bin`, polymatrix, n_sam_pol)
+C_temp_mean <- function(mtx) {
+    .Call(`_sits_C_temp_mean`, mtx)
+}
+
+C_temp_median <- function(mtx) {
+    .Call(`_sits_C_temp_median`, mtx)
+}
+
+C_temp_sum <- function(mtx) {
+    .Call(`_sits_C_temp_sum`, mtx)
+}
+
+C_temp_std <- function(mtx) {
+    .Call(`_sits_C_temp_std`, mtx)
+}
+
+C_temp_skew <- function(mtx) {
+    .Call(`_sits_C_temp_skew`, mtx)
+}
+
+C_temp_kurt <- function(mtx) {
+    .Call(`_sits_C_temp_kurt`, mtx)
+}
+
+C_temp_amplitude <- function(mtx) {
+    .Call(`_sits_C_temp_amplitude`, mtx)
+}
+
+C_temp_fslope <- function(mtx) {
+    .Call(`_sits_C_temp_fslope`, mtx)
+}
+
+C_temp_abs_sum <- function(mtx) {
+    .Call(`_sits_C_temp_abs_sum`, mtx)
+}
+
+C_temp_amd <- function(mtx) {
+    .Call(`_sits_C_temp_amd`, mtx)
+}
+
+C_temp_mse <- function(mtx) {
+    .Call(`_sits_C_temp_mse`, mtx)
+}
+
+C_temp_fqr <- function(mtx) {
+    .Call(`_sits_C_temp_fqr`, mtx)
+}
+
+C_temp_tqr <- function(mtx) {
+    .Call(`_sits_C_temp_tqr`, mtx)
+}
+
+C_temp_iqr <- function(mtx) {
+    .Call(`_sits_C_temp_iqr`, mtx)
 }
 
 C_max_sampling <- function(x, nrows, ncols, window_size) {
     .Call(`_sits_C_max_sampling`, x, nrows, ncols, window_size)
-}
-
-bayes_smoother <- function(m, m_nrow, m_ncol, w, sigma, neigh_fraction) {
-    .Call(`_sits_bayes_smoother`, m, m_nrow, m_ncol, w, sigma, neigh_fraction)
 }
 
 bayes_var <- function(m, m_nrow, m_ncol, w, neigh_fraction) {

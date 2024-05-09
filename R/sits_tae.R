@@ -103,6 +103,8 @@ sits_tae <- function(samples = NULL,
                      patience = 20,
                      min_delta = 0.01,
                      verbose = FALSE) {
+    # set caller for error msg
+    .check_set_caller("sits_tae")
     # Function that trains a torch model based on samples
     train_fun <- function(samples) {
         # Avoid add a global variable for 'self'
@@ -113,22 +115,22 @@ sits_tae <- function(samples = NULL,
         .check_samples_train(samples)
         .check_int_parameter(epochs)
         .check_int_parameter(batch_size)
-        .check_null(optimizer, msg = "invalid 'optimizer' parameter")
+        .check_null_parameter(optimizer)
         # Check validation_split parameter if samples_validation is not passed
         if (is.null(samples_validation)) {
-            .check_num_parameter(
-                param = validation_split, exclusive_min = 0, max = 0.5
-            )
+            .check_num_parameter(validation_split, exclusive_min = 0, max = 0.5)
         }
         # Check opt_hparams
         # Get parameters list and remove the 'param' parameter
         optim_params_function <- formals(optimizer)[-1]
         if (!is.null(names(opt_hparams))) {
-            .check_lst(opt_hparams, msg = "invalid 'opt_hparams' parameter")
+            .check_lst_parameter(opt_hparams,
+                                 msg = .conf("messages", ".check_opt_hparams")
+            )
             .check_chr_within(
                 x = names(opt_hparams),
                 within = names(optim_params_function),
-                msg = "invalid hyperparameters provided in optimizer"
+                msg = .conf("messages", ".check_opt_hparams")
             )
             optim_params_function <- utils::modifyList(
                 x = optim_params_function, val = opt_hparams
@@ -136,10 +138,10 @@ sits_tae <- function(samples = NULL,
         }
         # Other pre-conditions:
         .check_int_parameter(lr_decay_epochs)
-        .check_num_parameter(param = lr_decay_rate, exclusive_min = 0, max = 1)
+        .check_num_parameter(lr_decay_rate, exclusive_min = 0, max = 1)
         .check_int_parameter(patience)
-        .check_num_parameter(param = min_delta, min = 0)
-        .check_lgl(verbose)
+        .check_num_parameter(min_delta, min = 0)
+        .check_lgl_parameter(verbose)
         # Samples labels
         labels <- .samples_labels(samples)
         # Samples bands
@@ -166,7 +168,7 @@ sits_tae <- function(samples = NULL,
                 timeline = timeline, bands = bands
             )
             # Test samples are extracted from validation data
-            test_samples <- .predictors(samples)
+            test_samples <- .predictors(samples_validation)
             test_samples <- .pred_normalize(
                 pred = test_samples, stats = ml_stats
             )
@@ -177,7 +179,8 @@ sits_tae <- function(samples = NULL,
                 pred = train_samples, frac = validation_split
             )
             # Remove the lines used for validation
-            sel <- !train_samples$sample_id %in% test_samples$sample_id
+            sel <- !train_samples[["sample_id"]] %in%
+                test_samples[["sample_id"]]
             train_samples <- train_samples[sel, ]
         }
         n_samples_train <- nrow(train_samples)
@@ -274,7 +277,7 @@ sits_tae <- function(samples = NULL,
                 verbose = verbose
             )
         # Serialize model
-        serialized_model <- .torch_serialize_model(torch_model$model)
+        serialized_model <- .torch_serialize_model(torch_model[["model"]])
 
         # Function that predicts labels of input values
         predict_fun <- function(values) {
@@ -284,9 +287,9 @@ sits_tae <- function(samples = NULL,
             # Note: function does not work on MacOS
             suppressWarnings(torch::torch_set_num_threads(1))
             # Unserialize model
-            torch_model$model <- .torch_unserialize_model(serialized_model)
+            torch_model[["model"]] <- .torch_unserialize_model(serialized_model)
             # Used to check values (below)
-            input_pixels <- nrow(values)
+            n_input_pixels <- nrow(values)
             # Transform input into a 3D tensor
             # Reshape the 2D matrix into a 3D array
             n_samples <- nrow(values)
@@ -297,15 +300,30 @@ sits_tae <- function(samples = NULL,
             values <- array(
                 data = as.matrix(values), dim = c(n_samples, n_times, n_bands)
             )
-            # Do classification
-            values <- stats::predict(object = torch_model, values)
-            # Convert to tensor cpu to support GPU processing
+            # if CUDA is available, transform to torch data set
+            # Load into GPU
+            if (torch::cuda_is_available()) {
+                values <- .as_dataset(values)
+                # We need to transform in a dataloader to use the batch size
+                values <- torch::dataloader(
+                    values, batch_size = 2^15
+                )
+                # Do GPU classification
+                values <- .try(
+                    stats::predict(object = torch_model, values),
+                    .msg_error = .conf("messages", ".check_gpu_memory_size")
+                )
+            } else {
+                # Do CPU classification
+                values <- stats::predict(object = torch_model, values)
+            }
+            # Convert to tensor CPU
             values <- torch::as_array(
                 x = torch::torch_tensor(values, device = "cpu")
             )
             # Are the results consistent with the data input?
             .check_processed_values(
-                values = values, input_pixels = input_pixels
+                values = values, n_input_pixels = n_input_pixels
             )
             # Update the columns names to labels
             colnames(values) <- labels

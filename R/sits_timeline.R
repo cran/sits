@@ -18,7 +18,7 @@ sits_timeline <- function(data) {
 #' @export
 #'
 sits_timeline.sits <- function(data) {
-    return(as.Date(data$time_series[[1]]$Index))
+    return(.samples_timeline(data))
 }
 #' @rdname sits_timeline
 #' @export
@@ -26,29 +26,30 @@ sits_timeline.sits <- function(data) {
 sits_timeline.sits_model <- function(data) {
     .check_is_sits_model(data)
     samples <- .ml_samples(data)
-    return(as.Date(samples$time_series[[1]]$Index))
+    return(as.Date(samples[["time_series"]][[1]][["Index"]]))
 }
 #' @rdname sits_timeline
 #' @export
 #'
 sits_timeline.raster_cube <- function(data) {
+    .check_set_caller("sits_timeline_raster_cube")
     # pick the list of timelines
-    timelines.lst <- slider::slide(data, function(tile) {
+    timelines_lst <- slider::slide(data, function(tile) {
         timeline_tile <- .tile_timeline(tile)
         return(timeline_tile)
     })
-    names(timelines.lst) <- data$tile
-    timeline_unique <- unname(unique(timelines.lst))
+    names(timelines_lst) <- data[["tile"]]
+    timeline_unique <- unname(unique(timelines_lst))
 
     if (length(timeline_unique) == 1) {
         return(timeline_unique[[1]])
     } else {
         if (.check_warnings()) {
-            warning("cube is not regular, returning all timelines",
+            warning(.conf("messages", "sits_timeline_raster_cube"),
                 call. = FALSE
             )
         }
-        return(timelines.lst)
+        return(timelines_lst)
     }
 }
 #' @rdname sits_timeline
@@ -63,18 +64,21 @@ sits_timeline.derived_cube <- function(data) {
 #' @export
 sits_timeline.tbl_df <- function(data) {
     data <- tibble::as_tibble(data)
-    if (all(.conf("sits_cube_cols") %in% colnames(data))) {
+    if (all(.conf("sits_cube_cols") %in% colnames(data)))
         data <- .cube_find_class(data)
-    } else if (all(.conf("sits_tibble_cols") %in% colnames(data))) {
+    else if (all(.conf("sits_tibble_cols") %in% colnames(data)))
         class(data) <- c("sits", class(data))
-    } else
-        stop("Input should be a sits tibble or a data cube")
-    data <- sits_timeline(data)
-    return(data)
+    else
+        stop(.conf("messages", "sits_timeline_default"))
+    timeline <- sits_timeline(data)
+    return(timeline)
 }
 #' @rdname sits_timeline
 #' @export
 #'
 sits_timeline.default <- function(data) {
-    stop("input should be an object of class cube or class sits")
+    data <- tibble::as_tibble(data)
+    timeline <- sits_timeline(data)
+    return(timeline)
+
 }

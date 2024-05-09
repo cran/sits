@@ -16,7 +16,8 @@ processing_bloat        : 5
 processing_bloat_cpu    : 5
 processing_bloat_smooth : 8
 processing_bloat_seg    : 2
-processing_bloat_gpu    : 2
+processing_bloat_seg_class : 10
+processing_bloat_gpu    : 1.2
 
 # number of items returned by stac service
 rstac_pagination_limit  : 100
@@ -102,13 +103,29 @@ probs_cube_class        : ["probs_cube", "raster_cube", "sits_cube", "tbl_df",
 
 # Default values for non-registered bands
 default_values       :
-    eo_cube          :
+    INT2S            : &conf_default_int2s
         data_type    : "INT2S"
         missing_value: -32768
         minimum_value: -10000
         maximum_value: 10000
         offset_value : 0
         scale_factor : 0.0001
+
+    INT4S            : &conf_default_int4s
+        data_type    : "INT4S"
+        missing_value: -2147483647
+        minimum_value: -2147483647
+        maximum_value:  2147483647
+        offset_value : 0
+        scale_factor : 0.0001
+
+    FLT4S            :
+        data_type    : "FLT4S"
+        missing_value: -3.402823466385288e+37
+        minimum_value: -3.402823466385288e+37
+        maximum_value: 1.7014118346015974e+37
+        offset_value : 0
+        scale_factor : 1
 
 # Derived cube definitions
 derived_cube         :
@@ -161,15 +178,22 @@ vector_cube          :
         bands        :
             segments :
     probs_vector_cube:
-        s3_class     : ["probs_vector_cube", "derived_vector_cube", "segs_cube",
-                        "vector_cube"]
+        s3_class     : ["probs_vector_cube", "derived_vector_cube",
+                        "segs_cube", "vector_cube"]
         bands        :
-            probs-vector :
+            probs-vector:
     class_vector_cube:
-        s3_class     : ["class_vector_cube", "derived_vector_cube", "segs_cube",
-                        "vector_cube"]
+        s3_class     : ["class_vector_cube", "derived_vector_cube",
+                        "segs_cube", "vector_cube"]
         bands        :
-            class-vector    :
+            class-vector:
+    uncertainty_vector_cube:
+        s3_class     : ["uncertainty_vector_cube", "derived_vector_cube",
+                        "segs_cube", "vector_cube"]
+        bands        :
+            entropy  :
+            least    :
+            margin   :
 
 # configuration for classified cubes
 class_cube_data_type    : "INT1U"
@@ -236,6 +260,12 @@ class_intervals: ["sd", "equal", "quantile", "log", "pretty"]
 sits_color_table_cols: ["name", "color"]
 # maxbytes per plot (in MB)
 plot_max_Mbytes: 10
+# maximum size of COG overview for visualisation
+plot_max_size: 1200
+view_max_size: 2500
+
+# parameters to show B/W SAR bands for RTC cube
+sar_cube_grey_colors: 128
 
 # tmap configurations
 tmap:
@@ -247,15 +277,18 @@ tmap:
         legend_text_size: 1.0
         legend_bg_color: "white"
         legend_bg_alpha: 0.5
-        legend_width: 0.5
+        legend_width: 1.0
         legend_position: ["left", "bottom"]
         legend_height: 1.0
-        scale: 0.5
-        font_family: "plex_sans"
+        scale: 1.0
+        font_family: "sans"
+        n_breaks: 20
+
+tmap_continuous_style: ["cont", "order", "log10"]
 
 # maxbytes for leaflet (in MB)
 leaflet_megabytes : 64
 leaflet_min_megabytes : 16
 leaflet_max_megabytes : 512
 # estimated compression factor for leaflet
-leaflet_comp_factor : 0.50
+leaflet_comp_factor : 0.75

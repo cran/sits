@@ -51,12 +51,14 @@ NULL
     chunks[["col"]] <- .as_int(pmax(1, .col(chunks) - overlap))
     chunks[["row"]] <- .as_int(pmax(1, .row(chunks) - overlap))
     # Adjust ncols and nrows to do overlap
-    chunks[["ncols"]] <-
-        .as_int(pmin(.ncols(image_size), .col(chunks) + .ncols(block) +
-            overlap - 1) - .col(chunks) + 1)
-    chunks[["nrows"]] <-
-        .as_int(pmin(.nrows(image_size), .row(chunks) + .nrows(block) +
-            overlap - 1) - .row(chunks) + 1)
+    chunks[["ncols"]] <- .as_int(
+        pmin(.ncols(image_size),
+             .col(chunks) + .ncols(block) + overlap - 1) - .col(chunks) + 1
+    )
+    chunks[["nrows"]] <- .as_int(
+        pmin(.nrows(image_size),
+             .row(chunks) + .nrows(block) + overlap - 1) - .row(chunks) + 1
+    )
     # Chunk of entire image
     entire_image <- c(image_size, image_bbox)
     # Prepare a raster as template to crop bbox
@@ -148,4 +150,33 @@ NULL
 .chunks_filter_spatial <- function(chunks, roi) {
     chunks_sf <- .bbox_as_sf(.bbox(chunks, by_feature = TRUE))
     chunks[.intersects(chunks_sf, .roi_as_sf(roi)), ]
+}
+
+#' @title Filter chunks that intersects segments
+#' @noRd
+#' @param chunks A data frame with chunks
+#' @param tile   A cube tile
+#' @param output_dir Output directory
+#' @returns  A tibble with filtered segments
+.chunks_filter_segments <- function(chunks, tile, output_dir) {
+    # Read segments from tile
+    segments <- .segments_read_vec(tile)
+    # Transform each chunk in sf object
+    sf_chunks <- .bbox_as_sf(
+        .bbox(chunks, by_feature = TRUE, default_crs = .tile_crs(tile))
+    )
+    # Find segments in chunks
+    idx_contains <- sf::st_contains(sf_chunks, segments, sparse = TRUE)
+    chunks[["segments"]] <- purrr::map(seq_along(idx_contains), function(i) {
+        idx <- idx_contains[[i]]
+        block_file <- .file_block_name(
+            pattern = "chunk_seg",
+            block = .block(chunks[i, ]),
+            output_dir = output_dir,
+            ext = "gpkg"
+        )
+        .vector_write_vec(segments[idx, ], block_file)
+        return(block_file)
+    })
+    return(chunks)
 }

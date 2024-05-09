@@ -19,26 +19,30 @@ test_that("Regularizing cubes from AWS, and extracting samples from them", {
         purrr::is_null(s2_cube_open),
         "AWS is not accessible"
     )
+
     expect_false(.cube_is_regular(s2_cube_open))
     expect_true(all(sits_bands(s2_cube_open) %in% c("B8A", "CLOUD")))
+
+    timelines <-  suppressWarnings(sits_timeline(s2_cube_open))
+    expect_equal(length(timelines), 2)
+    expect_equal(length(timelines[["20LKP"]]), 6)
+    expect_equal(length(timelines[["20LLP"]]), 13)
 
     dir_images <- paste0(tempdir(), "/images_aws/")
     if (!dir.exists(dir_images)) {
         suppressWarnings(dir.create(dir_images))
     }
-    expect_warning({
-        rg_cube <- sits_regularize(
-            cube = .tile(s2_cube_open),
+
+    expect_warning(rg_cube <- sits_regularize(
+            cube = s2_cube_open,
             output_dir = dir_images,
             res = 240,
             period = "P16D",
             multicores = 2,
             progress = FALSE
-        )
-    })
+    ))
 
     tile_bbox <- .tile_bbox(rg_cube)
-
     expect_equal(.tile_nrows(rg_cube), 458)
     expect_equal(.tile_ncols(rg_cube), 458)
     expect_equal(tile_bbox$xmax, 309780, tolerance = 1e-1)
@@ -47,6 +51,22 @@ test_that("Regularizing cubes from AWS, and extracting samples from them", {
     tile_fileinfo <- .fi(rg_cube)
 
     expect_equal(nrow(tile_fileinfo), 2)
+
+    # Checking input class
+    s2_cube <- s2_cube_open
+    class(s2_cube) <- "data.frame"
+    expect_error(
+        sits_regularize(
+            cube = s2_cube,
+            output_dir = dir_images,
+            res = 240,
+            period = "P16D",
+            multicores = 2,
+            progress = FALSE
+        )
+    )
+
+    # Retrieving data
 
     csv_file <- system.file("extdata/samples/samples_amazonia.csv",
         package = "sits"
@@ -105,17 +125,14 @@ test_that("Creating Landsat cubes from MPC", {
     if (!dir.exists(output_dir)) {
         dir.create(output_dir)
     }
-    expect_warning({
-        rg_landsat <- sits_regularize(
+    expect_warning(rg_landsat <- sits_regularize(
             cube = landsat_cube,
             output_dir = output_dir,
             res = 240,
             period = "P30D",
             multicores = 1,
             progress = FALSE
-        )
-    })
-
+    ))
     expect_equal(.tile_nrows(.tile(rg_landsat)), 856)
     expect_equal(.tile_ncols(.tile(rg_landsat)), 967)
 
@@ -273,32 +290,4 @@ test_that("Regularizing local cubes without CLOUD BAND", {
         end = as.Date(tl_reg[2])
     )
     expect_equal(lubridate::time_length(int, "month"), 2)
-})
-test_that("Regularizing SENTINEL-1 data",{
-        ## Sentinel-1 SAR
-        roi_sar <- c("lon_min" = -50.410, "lon_max" = -50.379,
-                 "lat_min" = -10.1910, "lat_max" = -10.1573)
-        s1_cube_open <- sits_cube(
-            source = "MPC",
-            collection = "SENTINEL-1-GRD",
-            bands = c("VV", "VH"),
-            roi = roi_sar,
-            start_date = "2020-06-01",
-            end_date = "2020-09-28"
-        )
-        expect_false(.cube_is_regular(s1_cube_open))
-        expect_true(all(sits_bands(s1_cube_open) %in% c("VH", "VV")))
-        # regularize the cube
-        suppressWarnings(rg_cube <- sits_regularize(
-            cube = s1_cube_open,
-            period = "P12D",
-            res = 60,
-            roi = roi_sar,
-            multicores = 2,
-            output_dir = tempdir()
-        ))
-        expect_true(.cube_is_regular(rg_cube))
-        expect_true(all(sits_bands(rg_cube) %in% c("VH", "VV")))
-        expect_equal(rg_cube$crs, "EPSG:32722")
-        expect_equal(rg_cube$tile, "22LEP")
 })

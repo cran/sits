@@ -98,12 +98,6 @@ NULL
     setequal(names(x), c(.point_cols, "crs"))
 }
 
-.check_point <- function(x) {
-    if (!.is_point(x)) {
-        stop("object is not a valid point")
-    }
-}
-
 #' @title Extract a \code{point} from any given \code{vector}.
 #' @returns \code{.point()}: \code{point}.
 #' @noRd
@@ -111,7 +105,7 @@ NULL
     if (!.has_point(x)) {
         return(NULL)
     }
-    if (!.has(crs)) crs <- "EPSG:4326"
+    if (.has_not(crs)) crs <- "EPSG:4326"
     # Create point
     point <- .common_size(longitude = .lon(x), latitude = .lat(x), crs = crs)
     # Project to CRS

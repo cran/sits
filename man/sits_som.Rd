@@ -11,7 +11,7 @@ sits_som_map(
   grid_ydim = 10,
   alpha = 1,
   rlen = 100,
-  distance = "euclidean",
+  distance = "dtw",
   som_radius = 2,
   mode = "online"
 )
@@ -28,11 +28,17 @@ sits_som_map(
 
 \item{rlen}{Number of iterations to produce the SOM.}
 
-\item{distance}{The type of similarity measure (distance).}
+\item{distance}{The type of similarity measure (distance). The
+following similarity measurements are supported:
+\code{"euclidean"} and \code{"dtw"}. The default
+similarity measure is \code{"dtw"}.}
 
 \item{som_radius}{Radius of SOM neighborhood.}
 
-\item{mode}{Type of learning algorithm (default = "online").}
+\item{mode}{Type of learning algorithm. The
+following learning algorithm are available:
+\code{"online"}, \code{"batch"}, and \code{"pbatch"}.
+The default learning algorithm is \code{"online"}.}
 }
 \value{
 \code{sits_som_map()} produces a list with three members:
@@ -75,6 +81,15 @@ the posterior probability is < `posterior_threshold`, the sample is tagged as
 "analyze" for further inspection.
 The user can define which tagged samples will be returned using the "keep"
 parameter, with the following options: "clean", "analyze", "remove".
+}
+\note{
+To learn more about the learning algorithms, check the
+      \code{\link[kohonen:supersom]{kohonen::supersom}} function.
+
+The \code{sits} package implements the \code{"dtw"} (Dynamic Time
+      Warping) similarity measure. The \code{"euclidean"} similarity
+      measurement come from the
+      \code{\link[kohonen:supersom]{kohonen::supersom (dist.fcts)}} function.
 }
 \examples{
 if (sits_run_examples()) {

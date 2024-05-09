@@ -27,10 +27,9 @@
 #' @param x       R object
 #' @return time series
 .ts <- function(x) {
+    .check_set_caller(".ts")
     # Check time_series column
-    if (!.has_ts(x)) {
-        stop("time_series not found")
-    }
+    .check_that(.has_ts(x))
     # Add sample_id column
     x[["sample_id"]] <- seq_along(x[["time_series"]])
     # Extract time_series from column
@@ -49,9 +48,8 @@
 #' @param value   New time series
 #' @return new R object with time series
 `.ts<-` <- function(x, value) {
-    if (!.is_ts(value)) {
-        stop("invalid time series value")
-    }
+    .check_set_caller(".ts_assign")
+    .check_that(.is_ts(value))
     # Pack time series
     value <- tidyr::nest(value, time_series = -dplyr::all_of(.ts_cols))
     x <- x[.ts_sample_id(value), ]
@@ -94,11 +92,9 @@
 #' @param bands   Desired bands
 #' @return time series with bands
 .ts_select_bands <- function(ts, bands) {
+    .check_set_caller(".ts_select_bands")
     # Check missing bands
-    miss_bands <- bands[!bands %in% .ts_bands(ts)]
-    if (.has(miss_bands)) {
-        stop("band(s) ", .collapse("'", miss_bands, "'"), " not found")
-    }
+    .check_that(all(bands %in% .ts_bands(ts)))
     # Select the same bands as in the first sample
     ts <- ts[unique(c(.ts_cols, "Index", bands))]
     # Return time series
@@ -155,10 +151,10 @@
 #' @param end_date      End date
 #' @return time series filtered by interval
 .ts_filter_interval <- function(ts, start_date, end_date) {
-    if (!.has(start_date)) {
+    if (.has_not(start_date)) {
         start_date <- .ts_min_date(ts)
     }
-    if (!.has(end_date)) {
+    if (.has_not(end_date)) {
         end_date <- .ts_max_date(ts)
     }
     # Filter the interval period
@@ -174,13 +170,11 @@
 #' @param bands   Bands to extract values
 #' @return values
 .ts_values <- function(ts, bands = NULL) {
+    .check_set_caller(".ts_values")
     # Get the time series of samples
     bands <- .default(bands, .ts_bands(ts))
     # Check missing bands
-    miss_bands <- bands[!bands %in% .ts_bands(ts)]
-    if (.has(miss_bands)) {
-        stop("band(s) ", .collapse("'", miss_bands, "'"), " not found")
-    }
+    .check_that(all(bands %in% .ts_bands(ts)))
     ts[bands]
 }
 #' @title Extract a time series from raster
@@ -194,12 +188,14 @@
 #' @param tile              Metadata describing a tile of a raster data cube.
 #' @param points            tibble with points
 #' @param bands             Bands to be retrieved.
+#' @param impute_fn         Imputation function to remove NA.
 #' @param xy                A matrix with longitude as X and latitude as Y.
 #' @param cld_band          Cloud band (if available)
 #' @return                  A sits tibble with the time series.
 .ts_get_raster_data <- function(tile,
                                 points,
                                 bands,
+                                impute_fn,
                                 xy,
                                 cld_band = NULL) {
     # set caller to show in errors
@@ -208,7 +204,7 @@
     timeline <- sits_timeline(tile)
 
     # retrieve values for the cloud band (if available)
-    if (!purrr::is_null(cld_band)) {
+    if (.has(cld_band)) {
         # retrieve values that indicate clouds
         cld_index <- .source_cloud_interp_values(
             source = .tile_source(tile),
@@ -227,7 +223,8 @@
         )) {
             cld_values <- as.matrix(cld_values)
             cld_rows <- nrow(cld_values)
-            cld_values <- matrix(bitwAnd(cld_values, sum(2^cld_index)),
+            cld_values <- matrix(
+                bitwAnd(cld_values, sum(2^cld_index)),
                 nrow = cld_rows
             )
         }
@@ -253,8 +250,8 @@
         ts_band_lst <- purrr::map(seq_len(nrow(values_band)), function(i) {
             t_point <- .timeline_during(
                 timeline   = timeline,
-                start_date = lubridate::as_date(points$start_date[[i]]),
-                end_date   = lubridate::as_date(points$end_date[[i]])
+                start_date = lubridate::as_date(points[["start_date"]][[i]]),
+                end_date   = lubridate::as_date(points[["end_date"]][[i]])
             )
             # select the valid dates in the timeline
             start_idx <- which(timeline == t_point[[1]])
@@ -264,7 +261,7 @@
                 use.names = FALSE
             )
             # include information from cloud band
-            if (!purrr::is_null(cld_band)) {
+            if (.has(cld_band)) {
                 cld_values <- unlist(cld_values[i, start_idx:end_idx],
                     use.names = FALSE
                 )
@@ -281,10 +278,8 @@
             values_ts[values_ts == missing_value] <- NA
             values_ts[values_ts < minimum_value] <- NA
             values_ts[values_ts > maximum_value] <- NA
-            # use linear imputation
-            impute_fn <- .impute_linear()
             # are there NA values? interpolate them
-            if (any(is.na(values_ts))) {
+            if (anyNA(values_ts)) {
                 values_ts <- impute_fn(values_ts)
             }
             # correct the values using the scale factor
@@ -301,8 +296,8 @@
         purrr::transpose() |>
         purrr::map(tibble::as_tibble)
     # include the time series in the XY points
-    points$time_series <- purrr::map2(
-        points$time_series,
+    points[["time_series"]] <- purrr::map2(
+        points[["time_series"]],
         ts_samples,
         dplyr::bind_cols
     )
@@ -328,42 +323,29 @@
                                  band,
                                  xy) {
     # set caller to show in errors
-    .check_set_caller(".raster_class_get_ts")
+    .check_set_caller(".ts_get_raster_class")
     # get timeline
     timeline <- sits_timeline(tile)
     # check timeline
-    .check_length(
-        x = timeline,
-        len_min = 2,
-        len_max = 2,
-        msg = "invalid classified timeline"
-    )
+    .check_that(length(timeline) == 2)
     # get tile labels
     labels <- sits_labels(tile)
     # check for labels
-    .check_null(
-        x = labels,
-        msg = "tiles should have labels field defined"
-    )
+    .check_that(all(.has(labels)))
     # get the values of the time series as matrix
     values_band <- .tile_extract(tile = tile, band = band, xy = xy)
     # each row of the values matrix is a spatial point
     traj_lst <- as.list(unname(unlist(values_band)))
     # check if all values fits the labels
     max_label_index <- max(unlist(traj_lst))
-    .check_that(
-        x = max_label_index <= length(labels),
-        local_msg = paste(
-            "cube should have at least", max_label_index, "labels"
-        ),
-        msg = "pixel values do not correspond to any label"
-    )
+    # postcondition
+    .check_that(max_label_index <= length(labels))
     # now we have to transpose the data
     traj_samples <- traj_lst |>
         purrr::map(function(x) tibble::tibble(class = labels[x]))
     # include the time series in the XY points
-    points$predicted <- purrr::map2(
-        points$predicted,
+    points[["predicted"]] <- purrr::map2(
+        points[["predicted"]],
         traj_samples,
         dplyr::bind_cols
     )

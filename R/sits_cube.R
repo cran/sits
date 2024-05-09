@@ -33,6 +33,7 @@
 #'                     in the cube (optional - character vector).
 #'                     Use \code{\link{sits_list_collections}()} to find out
 #'                     the bands available for each collection.
+#' @param orbit        Orbit name ("ascending", "descending") for SAR cubes.
 #' @param vector_band  Band for vector cube ("segments", "probs", "class")
 #' @param start_date,end_date Initial and final dates to include
 #'                     images from the collection in the cube (optional).
@@ -202,7 +203,7 @@
 #'     # DEAFRICA does not support definition of tiles
 #'     cube_dea <- sits_cube(
 #'         source = "DEAFRICA",
-#'         collection = "S2_L2A",
+#'         collection = "SENTINEL-2-L2A",
 #'         bands = c("B04", "B08"),
 #'         roi = c(
 #'             "lat_min" = 17.379,
@@ -213,6 +214,30 @@
 #'         start_date = "2019-01-01",
 #'         end_date = "2019-10-28"
 #'     )
+#'     # --- Access to CDSE open data Sentinel 2/2A level 2 collection
+#'     # It is recommended that `multicores` be used to accelerate the process.
+#'     s2_cube <- sits_cube(
+#'         source = "CDSE",
+#'         collection = "SENTINEL-2-L2A",
+#'         tiles = c("20LKP"),
+#'         bands = c("B04", "B08", "B11"),
+#'         start_date = "2018-07-18",
+#'         end_date = "2019-01-23"
+#'     )
+#'
+#'     ## -- Sentinel-1 SAR from CDSE
+#'     roi_sar <- c("lon_min" = 33.546, "lon_max" = 34.999,
+#'                  "lat_min" = 1.427, "lat_max" = 3.726)
+#'     s1_cube_open <- sits_cube(
+#'        source = "CDSE",
+#'        collection = "SENTINEL-1-RTC",
+#'        bands = c("VV", "VH"),
+#'        orbit = "descending",
+#'        roi = roi_sar,
+#'        start_date = "2020-01-01",
+#'        end_date = "2020-06-10"
+#'     )
+#'
 #'     # --- Access to AWS open data Sentinel 2/2A level 2 collection
 #'     s2_cube <- sits_cube(
 #'         source = "AWS",
@@ -247,16 +272,17 @@
 #'
 #'     ## Sentinel-1 SAR from MPC
 #'     roi_sar <- c("lon_min" = -50.410, "lon_max" = -50.379,
-#'     "lat_min" = -10.1910, "lat_max" = -10.1573)
+#'                  "lat_min" = -10.1910, "lat_max" = -10.1573)
 #'
 #'     s1_cube_open <- sits_cube(
 #'        source = "MPC",
 #'        collection = "SENTINEL-1-GRD",
 #'        bands = c("VV", "VH"),
+#'        orbit = "descending",
 #'        roi = roi_sar,
 #'        start_date = "2020-06-01",
 #'        end_date = "2020-09-28"
-#'        )
+#'     )
 #'
 #'     # --- Create a cube based on a local MODIS data
 #'     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
@@ -284,6 +310,36 @@ sits_cube <- function(source, collection, ...) {
 #' @rdname sits_cube
 #'
 #' @export
+sits_cube.sar_cube <- function(source,
+                               collection, ...,
+                               orbit = "ascending",
+                               bands = NULL,
+                               tiles = NULL,
+                               roi = NULL,
+                               start_date = NULL,
+                               end_date = NULL,
+                               platform = NULL,
+                               multicores = 2,
+                               progress = TRUE) {
+
+    sits_cube.stac_cube(
+        source = source,
+        collection = collection,
+        bands = bands,
+        tiles = tiles,
+        roi = roi,
+        start_date = start_date,
+        end_date = end_date,
+        platform = platform,
+        multicores = multicores,
+        progress = progress,
+        orbit = orbit,
+        ...
+    )
+}
+#' @rdname sits_cube
+#'
+#' @export
 sits_cube.stac_cube <- function(source,
                                 collection, ...,
                                 bands = NULL,
@@ -292,6 +348,7 @@ sits_cube.stac_cube <- function(source,
                                 start_date = NULL,
                                 end_date = NULL,
                                 platform = NULL,
+                                multicores = 2,
                                 progress = TRUE) {
 
     # Check for ROI and tiles
@@ -350,7 +407,7 @@ sits_cube.stac_cube <- function(source,
         end_date = end_date
     )
     # builds a sits data cube
-    .source_cube(
+    cube <- .source_cube(
         source = source,
         collection = collection,
         bands = bands,
@@ -359,8 +416,11 @@ sits_cube.stac_cube <- function(source,
         start_date = start_date,
         end_date = end_date,
         platform = platform,
+        multicores = multicores,
         progress = progress, ...
     )
+    # adjust crs of the cube before return
+    .cube_adjust_crs(cube)
 }
 #' @rdname sits_cube
 #'
@@ -380,8 +440,10 @@ sits_cube.local_cube <- function(source,
                                  delim = "_",
                                  multicores = 2L,
                                  progress = TRUE) {
+    # set caller for error messages
+    .check_set_caller("sits_cube_local_cube")
     # precondition - data directory must be provided
-    .check_file(x = data_dir, msg = "'data_dir' parameter must be provided.")
+    .check_file(data_dir)
     # expanding the shortened paths since gdal functions do not work with them
     data_dir <- path.expand(data_dir)
     # deal with wrong parameter "band" in dots
@@ -392,27 +454,23 @@ sits_cube.local_cube <- function(source,
     }
     # precondition - check source and collection for eo_cubes only
     # is this a cube with results?
-    if (!purrr::is_null(bands) &&
-        all(bands %in% .conf("sits_results_bands"))) {
+    if (.has(bands) && all(bands %in% .conf("sits_results_bands")))
         results_cube <- TRUE
-    } else {
+    else
         results_cube <- FALSE
-    }
-    if (!purrr::is_null(vector_dir)) {
-        if (!purrr::is_null(bands)) {
+    if (.has(vector_dir)) {
+        if (.has(bands)) {
             .check_that(
                 !(all(bands %in% .conf("sits_results_bands"))),
-                msg = "bands for vector cubes should be provided in
-            parameter vector_bands"
+                msg = .conf("messages", "sits_cube_local_cube_vector_band")
             )
         }
         .check_chr_parameter(vector_band,
-                             msg = "one vector_band must be provided
-                             (either segments, class, or probs)")
-        .check_that(
+            msg = .conf("messages", "sits_cube_local_cube_vector_band")
+        )
+         .check_that(
             vector_band %in% c("segments", "class", "probs"),
-            msg = "bands for vector cubes should be provided in
-            parameter vector_bands"
+            msg = .conf("messages", "sits_cube_local_cube_vector_band")
         )
     }
     if (!results_cube) {
@@ -441,5 +499,22 @@ sits_cube.local_cube <- function(source,
 }
 #' @export
 sits_cube.default <- function(source, collection, ...) {
-    stop("sits_cube: source not found.")
+    stop(.conf("messages", "sits_cube_default"))
+}
+#' @title Convert MGRS tile information to ROI in WGS84
+#' @name sits_mgrs_to_roi
+#' @author Gilberto Camara, \email{gilberto.camara@@inpe.br}
+#' @author Rolf Simoes, \email{rolf.simoes@@gmail.com}
+#'
+#' @description
+#' Takes a list of MGRS tiles and produces a ROI covering them
+#'
+#' @param  tiles                Character vector with names of MGRS tiles
+#' @return roi                  Valid ROI to use in other SITS functions
+#'
+#' @export
+sits_mgrs_to_roi <- function(tiles) {
+    # retrieve the ROI
+    roi <- .s2_mgrs_to_roi(tiles)
+    return(roi)
 }

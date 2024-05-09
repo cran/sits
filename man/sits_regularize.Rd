@@ -3,24 +3,26 @@
 \name{sits_regularize}
 \alias{sits_regularize}
 \alias{sits_regularize.raster_cube}
-\alias{sits_regularize.mpc_cube_sentinel-1-grd}
+\alias{sits_regularize.sar_cube}
 \alias{sits_regularize.derived_cube}
-\alias{sits_regularize.tbl_df}
 \alias{sits_regularize.default}
 \title{Build a regular data cube from an irregular one}
 \usage{
 sits_regularize(
   cube,
+  ...,
   period,
   res,
   output_dir,
   roi = NULL,
+  tiles = NULL,
   multicores = 2L,
   progress = TRUE
 )
 
 \method{sits_regularize}{raster_cube}(
   cube,
+  ...,
   period,
   res,
   output_dir,
@@ -29,49 +31,27 @@ sits_regularize(
   progress = TRUE
 )
 
-\method{sits_regularize}{`mpc_cube_sentinel-1-grd`}(
+\method{sits_regularize}{sar_cube}(
   cube,
+  ...,
   period,
   res,
   output_dir,
   roi = NULL,
+  tiles = NULL,
   multicores = 2L,
   progress = TRUE
 )
 
-\method{sits_regularize}{derived_cube}(
-  cube,
-  period,
-  res,
-  output_dir,
-  roi = NULL,
-  multicores = 2,
-  progress = TRUE
-)
+\method{sits_regularize}{derived_cube}(cube, ...)
 
-\method{sits_regularize}{tbl_df}(
-  cube,
-  period,
-  res,
-  output_dir,
-  roi = NULL,
-  multicores = 2,
-  progress = TRUE
-)
-
-\method{sits_regularize}{default}(
-  cube,
-  period,
-  res,
-  output_dir,
-  roi = NULL,
-  multicores = 2,
-  progress = TRUE
-)
+\method{sits_regularize}{default}(cube, ...)
 }
 \arguments{
 \item{cube}{\code{raster_cube} object whose observation
 period and/or spatial resolution is not constant.}
+
+\item{...}{Additional parameters for \code{fn_check} function.}
 
 \item{period}{ISO8601-compliant time period for regular
 data cubes, with number and unit, where
@@ -82,8 +62,9 @@ data cubes, with number and unit, where
 
 \item{output_dir}{Valid directory for storing regularized images.}
 
-\item{roi}{A named \code{numeric} vector with a region of interest.
-See more above.}
+\item{roi}{A named \code{numeric} vector with a region of interest.}
+
+\item{tiles}{MGRS tiles to be produced (only for Sentinel-1 cubes)}
 
 \item{multicores}{Number of cores used for regularization;
 used for parallel processing of input (integer)}
@@ -148,6 +129,7 @@ if (sits_run_examples()) {
         source = "MPC",
         collection = "SENTINEL-1-GRD",
         bands = c("VV", "VH"),
+        orbit = "descending",
         roi = roi,
         start_date = "2020-06-01",
         end_date = "2020-09-28"

@@ -1,8 +1,25 @@
+#'
+#' @name .segments_tile
+#' @keywords internal
+#' @noRd
+#' @description     Extract the segments from a tile
+#'
+#' @param tile       tile of regular data cube
+#' @param seg_fn     Segmentation function to be used
+#' @param band       Name of output band
+#' @param block      Block size
+#' @param roi        Region of interest
+#' @param impute_fn  Imputation function to remove NA values
+#' @param output_dir Directory for saving temporary segment files
+#' @param version    Version of the result
+#' @param progress   Show progress bar?
+#' @return segments for the tile
 .segments_tile <- function(tile,
                            seg_fn,
                            band,
                            block,
                            roi,
+                           impute_fn,
                            output_dir,
                            version,
                            progress) {
@@ -14,11 +31,7 @@
     # Resume feature
     if (file.exists(out_file)) {
         if (.check_messages()) {
-            message("Recovery: tile '", tile[["tile"]], "' already exists.")
-            message(
-                "(If you want to produce a new segmentation, please ",
-                "change 'output_dir' or 'version' parameters)"
-            )
+            .check_recovery(out_file)
         }
         seg_tile <- .tile_segments_from_file(
             file = out_file,
@@ -38,7 +51,10 @@
         # How many chunks there are in tile?
         nchunks <- nrow(chunks)
         # Intersecting chunks with ROI
-        chunks <- .chunks_filter_spatial(chunks, roi = roi)
+        chunks <- .chunks_filter_spatial(
+            chunks = chunks,
+            roi = roi
+        )
         # Should bbox of resulting tile be updated?
         update_bbox <- nrow(chunks) != nchunks
     }
@@ -60,19 +76,22 @@
             return(block_file)
         }
         # Read and preprocess values
-        values <- .segments_data_read(tile = tile, block = block)
-        # Get mask of NA pixels
-        na_mask <- C_mask_na(values)
+        values <- .segments_data_read(
+            tile = tile,
+            block = block,
+            impute_fn = impute_fn
+        )
         # Fill with zeros remaining NA pixels
         values <- C_fill_na(values, 0)
-        # Used to check values (below)
-        input_pixels <- nrow(values)
-        # Apply segment function
+        # Apply segmentation function
         values <- seg_fn(values, block, bbox)
         # Check if the result values is a vector object
-        .check_vector(values)
+        .check_vector_object(values)
         # Prepare and save results as vector
-        .vector_write_vec(v_obj = values, file_path = block_file)
+        .vector_write_vec(
+            v_obj = values,
+            file_path = block_file
+        )
         # Free memory
         gc()
         # Returned block file
@@ -92,8 +111,13 @@
     # Return segments tile
     seg_tile
 }
-
-
+#' @name .segments_is_valud
+#' @keywords internal
+#' @noRd
+#' @description     Check if segments file is valid
+#'
+#' @param file      GKPG file containing the segments
+#' @return  TRUE/FALSE
 .segments_is_valid <- function(file) {
     # resume processing in case of failure
     if (!all(file.exists(file))) {
@@ -116,26 +140,43 @@
     return(TRUE)
 }
 
-.segments_data_read <- function(tile, block) {
+#' @name .segments_data_read
+#' @keywords internal
+#' @noRd
+#' @description     Extract the segments from a tile
+#'
+#' @param tile       Tile of regular data cube
+#' @param block      Block size
+#' @param impute_fn  Imputation function for removing NA values
+#' @return values of the time series in the block
+.segments_data_read <- function(tile, block, impute_fn) {
     # For cubes that have a time limit to expire (MPC cubes only)
     tile <- .cube_token_generator(tile)
     # Read and preprocess values of cloud
     # Get cloud values (NULL if not exists)
-    cloud_mask <- .tile_cloud_read_block(tile = tile, block = block)
+    cloud_mask <- .tile_cloud_read_block(
+        tile = tile,
+        block = block
+    )
     # Get tile bands
-    tile_bands <- .tile_bands(tile, add_cloud = FALSE)
+    tile_bands <- .tile_bands(
+        tile = tile,
+        add_cloud = FALSE
+    )
     # Read and preprocess values of each band
     values <- purrr::map_dfc(tile_bands, function(band) {
         # Get band values (stops if band not found)
-        values <- .tile_read_block(tile = tile, band = band, block = block)
+        values <- .tile_read_block(
+            tile = tile,
+            band = band,
+            block = block
+        )
         # Remove cloud masked pixels
         if (.has(cloud_mask)) {
             values[cloud_mask] <- NA
         }
-        # use linear imputation
-        impute_fn <- .impute_linear()
         # are there NA values? interpolate them
-        if (any(is.na(values))) {
+        if (anyNA(values)) {
             values <- impute_fn(values)
         }
         # Return values
@@ -144,131 +185,177 @@
     # Compose final values
     values <- as.matrix(values)
     # Set values features name
-    colnames(values) <- .pred_features_name(tile_bands, .tile_timeline(tile))
+    colnames(values) <- .pred_features_name(
+        bands = tile_bands,
+        timeline = .tile_timeline(tile)
+    )
     # Return values
     values
 }
 
-.get_segments_from_cube <- function(cube) {
-    slider::slide_dfr(cube, function(tile) {
-        .segments_read_vec(tile)
-    })
-}
-
+#' @name .segments_path
+#' @keywords internal
+#' @noRd
+#' @description     Find the path to the GPKG file with the segments
+#'
+#' @param cube       Regular data cube
+#' @return GPKG file name
 .segments_path <- function(cube) {
     slider::slide_chr(cube, function(tile) {
         tile[["vector_info"]][[1]][["path"]]
     })
 }
-
+#' @name .segments_read_vec
+#' @keywords internal
+#' @noRd
+#' @description     Read the segments associated to a tile
+#' @param cube      Regular data cube
+#' @return segment vectors (sf object)
 .segments_read_vec <- function(cube) {
     tile <- .tile(cube)
     vector_seg <- .vector_read_vec(.segments_path(tile))
 
     return(vector_seg)
 }
-
-.segments_join_probs <- function(data, segments, aggregate) {
+#' @name .segments_join_probs
+#' @keywords internal
+#' @noRd
+#' @description     Join the probabilities of time series inside each
+#'                  segment to the segments vectors
+#' @param data      Classified time series
+#' @param segments  Segments object (sf object)
+#' @return segment vectors (sf object) with the probabilities
+#'
+.segments_join_probs <- function(data, segments) {
     # Select polygon_id and class for the time series tibble
-    data_id <- data |>
+    data <- data |>
         dplyr::select("polygon_id", "predicted") |>
         dplyr::mutate(polygon_id = as.numeric(.data[["polygon_id"]])) |>
         tidyr::unnest(cols = "predicted") |>
         dplyr::select(-"class") |>
         dplyr::group_by(.data[["polygon_id"]])
     # Select just probability labels
-    labels <- setdiff(colnames(data_id), c("polygon_id", "from", "to", "class"))
-
-    if (aggregate) {
-        data_id <- data_id |>
-            dplyr::summarise(dplyr::across(.cols = dplyr::all_of(labels), stats::median)) |>
-            dplyr::rowwise() |>
-            dplyr::mutate(sum = sum(dplyr::c_across(cols = dplyr::all_of(labels)))) |>
-            dplyr::mutate(dplyr::across(.cols = dplyr::all_of(labels), ~ .x / .data[["sum"]])) |>
-            dplyr::select(-"sum")
-    }
+    labels <- setdiff(colnames(data), c("polygon_id", "from", "to", "class"))
+    # Calculate metrics
+    data <- dplyr::summarise(
+        data,
+        dplyr::across(.cols = dplyr::all_of(labels),
+                      .names = "{.col}_mean", mean)
+    )
+    # Summarize probabilities
+    data <- data |>
+        dplyr::rename_with(~ gsub("_mean$", "", .x)) |>
+        dplyr::rowwise() |>
+        dplyr::mutate(
+            sum = sum(
+                dplyr::c_across(
+                    cols = dplyr::all_of(labels)
+                )
+            )
+        ) |>
+        dplyr::mutate(
+            dplyr::across(
+                .cols = dplyr::all_of(labels), ~ .x / .data[["sum"]]
+            )
+        ) |>
+        dplyr::select(-"sum")
 
     # join the data_id tibble with the segments (sf objects)
-    dplyr::left_join(segments, data_id, by = c("pol_id" = "polygon_id"))
+    dplyr::left_join(
+        x = segments,
+        y = data,
+        by = c(pol_id = "polygon_id")
+    )
 }
 #'
-#' @name .segments_extract_data
+#' @name .segments_data_read
 #' @keywords internal
 #' @noRd
 #' @description     Using the segments as polygons, get all time series
 #'
-#' @param seg_tile_bands tibble to be processed in parallel
 #' @param tile       tile of regular data cube
-#' @param bands      bands used in time series
-#' @param pol_id     ID attribute for polygons.
+#' @param chunk      A chunk to be read.
 #' @param n_sam_pol  Number of samples per polygon to be read.
-#' @param multicores Number of cores to use for processing
-#' @param progress   Show progress bar?
+#' @param impute_fn  Imputation function to remove NA
 #'
 #' @return  samples associated to segments
-#'
-.segments_extract_data <- function(seg_tile_bands,
-                                   tile,
-                                   bands,
-                                   pol_id,
-                                   n_sam_pol,
-                                   multicores,
-                                   progress) {
-
-    # multicores is less or equal to number of bands
-    multicores <- min(multicores, length(bands))
-    # prepare parallelization
-    .parallel_start(workers = multicores)
-    on.exit(.parallel_stop(), add = TRUE)
-
-    # Extract band values
-    ts_bands <- .jobs_map_parallel(seg_tile_bands, function(seg_tile_band) {
-        # get the scale factors, max, min and missing values
-        band_params <- seg_tile_band[["params"]][[1]]
-        missing_value <- .miss_value(band_params)
-        minimum_value <- .min_value(band_params)
-        maximum_value <- .max_value(band_params)
-        scale_factor <- .scale(band_params)
-        offset_value <- .offset(band_params)
-        # extract the values
-        values <- .tile_extract_segments(seg_tile_band)
-        pol_id <- values[,"pol_id"]
+.segments_poly_read <- function(tile, chunk, n_sam_pol, impute_fn) {
+    # For cubes that have a time limit to expire (MPC cubes only)
+    tile <- .cube_token_generator(cube = tile)
+    # Read and preprocess values of cloud
+    # Get tile bands
+    tile_bands <- .tile_bands(
+        tile = tile,
+        add_cloud = FALSE
+    )
+    # Read and preprocess values of each band
+    ts_bands <- purrr::map(tile_bands, function(band) {
+        # extract band values
+        values <- .tile_extract_segments(
+            tile = tile,
+            band = band,
+            chunk = chunk
+        )
+        pol_id <- values[, "pol_id"]
         values <- values[, -1:0]
-        # adjust maximum and minimum values
-        values[values == missing_value] <- NA
-        values[values < minimum_value] <- NA
-        values[values > maximum_value] <- NA
-        # use linear imputation
-        impute_fn <- .impute_linear()
+        # Correct missing, minimum, and maximum values and
+        # apply scale and offset.
+        band_conf <- .tile_band_conf(
+            tile = tile,
+            band = band
+        )
+        miss_value <- .miss_value(band_conf)
+        if (.has(miss_value)) {
+            values[values == miss_value] <- NA
+        }
+        min_value <- .min_value(band_conf)
+        if (.has(min_value)) {
+            values[values < min_value] <- NA
+        }
+        max_value <- .max_value(band_conf)
+        if (.has(max_value)) {
+            values[values > max_value] <- NA
+        }
+        scale <- .scale(band_conf)
+        if (.has(scale) && scale != 1) {
+            values <- values * scale
+        }
+        offset <- .offset(band_conf)
+        if (.has(offset) && offset != 0) {
+            values <- values + offset
+        }
         # are there NA values? interpolate them
-        if (any(is.na(values))) {
+        if (anyNA(values)) {
             values <- impute_fn(values)
         }
-        # correct the values using the scale factor
-        values <- values * scale_factor + offset_value
         # Returning extracted time series
         return(list(pol_id, c(t(unname(values)))))
-    }, progress = progress)
+    })
     # extract the pol_id information from the first element of the list
     pol_id <- ts_bands[[1]][[1]]
     # remove the first element of the each list and retain the second
     ts_bands <- purrr::map(ts_bands, function(ts_band) ts_band[[2]])
     # rename the resulting list
-    names(ts_bands) <- bands
+    names(ts_bands) <- tile_bands
     # transform the list to a tibble
     ts_bands <-  tibble::as_tibble(ts_bands)
     # retrieve the dates of the tile
     n_dates <- length(.tile_timeline(tile))
     # find how many samples have been extracted from the tile
-    n_samples <- nrow(ts_bands)/n_dates
+    n_samples <- nrow(ts_bands) / n_dates
     # include sample_id information
     ts_bands[["sample_id"]] <- rep(seq_len(n_samples),
                                    each = n_dates)
     # include timeline
-    ts_bands[["Index"]] <- rep(.tile_timeline(tile), times = n_samples)
+    ts_bands[["Index"]] <- rep(
+        .tile_timeline(tile),
+        times = n_samples
+    )
     # nest the values by bands
-    ts_bands <- tidyr::nest(ts_bands,
-                            time_series = c("Index", dplyr::all_of(bands)))
+    ts_bands <- tidyr::nest(
+        ts_bands,
+        time_series = c("Index", dplyr::all_of(tile_bands))
+    )
     # include the ids of the polygons
     ts_bands[["polygon_id"]] <- pol_id
     # we do the unnest again because we do not know the polygon id index
@@ -276,14 +363,19 @@
     # remove pixels where all timeline was NA
     ts_bands <-  tidyr::drop_na(ts_bands)
     # nest the values by bands
-    ts_bands <- tidyr::nest(ts_bands,
-                            time_series = c("Index", dplyr::all_of(bands)))
+    ts_bands <- tidyr::nest(
+        ts_bands,
+        time_series = c("Index", dplyr::all_of(tile_bands))
+    )
     # nest the values by sample_id and time_series
-    ts_bands <- tidyr::nest(ts_bands, points = c("sample_id", "time_series"))
+    ts_bands <- tidyr::nest(
+        ts_bands,
+        points = c("sample_id", "time_series")
+    )
     # retrieve the segments
-    segments <- .vector_read_vec(seg_tile_bands[["segs_path"]][1])
+    segments <- .vector_read_vec(chunk[["segments"]][[1]])
     # include lat/long information
-    lat_long <- .proj_to_latlong(segments$x, segments$y, .crs(tile))
+    lat_long <- .proj_to_latlong(segments[["x"]], segments[["y"]], .crs(tile))
     # create metadata for the polygons
     samples <- tibble::tibble(
         longitude  = lat_long[, "longitude"],
@@ -295,11 +387,18 @@
         ts_bands
     )
     # unnest to obtain the samples.
-    samples <- tidyr::unnest(samples, cols = "points")
-    # sample the values
-    samples <- dplyr::slice_sample(samples,
-                                   n = n_sam_pol,
-                                   by = "polygon_id")
+    samples <- tidyr::unnest(
+        samples,
+        cols = "points"
+    )
+    # sample the values if n_sam_plot is not NULL
+    if (.has(n_sam_pol)) {
+        samples <- dplyr::slice_sample(
+            samples,
+            n = n_sam_pol,
+            by = "polygon_id"
+        )
+    }
     samples <- .discard(samples, "sample_id")
     # set sits class
     class(samples) <- c("sits", class(samples))
@@ -314,9 +413,9 @@
 #'
 #' @return tibble with band-files pairs
 #'
-.segments_split_tile_bands <- function(tile, bands){
-    tile_bands <- purrr::map(bands, function(band){
-        band_files <- .fi_filter_bands(.fi(tile), band)$path
+.segments_split_tile_bands <- function(tile, bands) {
+    tile_bands <- purrr::map(bands, function(band) {
+        band_files <- .fi_filter_bands(.fi(tile), band)[["path"]]
         tibble::tibble(
             band = band,
             files = list(band_files),
@@ -338,8 +437,11 @@
 #' @param output_dir directory to write the segments
 #' @return list of tibbles with band-files pairs
 #'
-.segments_split_tile_bands_list <- function(tile, bands, segments,
-                                            n_iterations, output_dir){
+.segments_split_tile_bands_list <- function(tile,
+                                            bands,
+                                            segments,
+                                            n_iterations,
+                                            output_dir) {
 
     segments[["group"]] <- rep(
         seq_len(n_iterations), each = ceiling(nrow(segments) / n_iterations)
@@ -348,18 +450,20 @@
     segments_lst <- dplyr::group_split(
         dplyr::group_by(segments, .data[["group"]])
     )
-    segment_files <- purrr::map_chr(segments_lst, function(seg_part){
+    segment_files <- purrr::map_chr(segments_lst, function(seg_part) {
         # Block file name
         hash_bundle <- digest::digest(seg_part, algo = "md5")
-        seg_file <- .file_path(paste0(hash_bundle, "_segments"),
-                               ext = "gpkg",
-                               output_dir = output_dir)
+        seg_file <- .file_path(
+            paste0(hash_bundle, "_segments"),
+            ext = "gpkg",
+            output_dir = output_dir
+        )
         .vector_write_vec(seg_part, seg_file)
         return(seg_file)
     })
     seg_tile_band_lst <- purrr::map(segment_files, function(seg_file) {
-        tile_bands <- purrr::map(bands, function(band){
-            band_files <- .fi_filter_bands(.fi(tile), band)$path
+        tile_bands <- purrr::map(bands, function(band) {
+            band_files <- .fi_filter_bands(.fi(tile), band)[["path"]]
             tibble::tibble(
                 band = band,
                 files = list(band_files),
@@ -371,69 +475,4 @@
         return(seg_tile_band)
     })
     return(seg_tile_band_lst)
-}
-#'
-#'
-#' @name .segments_extract_multicores
-#' @keywords internal
-#' @noRd
-#' @description     Using the segments as polygons, get all time series
-#'
-#' @param tile       tile of regular data cube
-#' @param bands      bands used in time series
-#' @param pol_id     ID attribute for polygons.
-#' @param n_sam_pol  Number of samples per polygon to be read.
-#' @param multicores Number of cores to use for processing
-#' @param memsize    Memory available for processing
-#' @param output_dir Directory for saving temporary segment files
-#' @param progress   Show progress bar?
-#'
-.segments_extract_multicores <- function(tile,
-                                         bands,
-                                         pol_id,
-                                         n_sam_pol,
-                                         multicores,
-                                         memsize,
-                                         output_dir,
-                                         progress) {
-
-    # how much memory do we need?
-    req_memory <- .tile_nrows(tile)  * .tile_ncols(tile) *
-        length(.tile_timeline(tile)) * length(bands) * 4 *
-        .conf("processing_bloat_seg") / 1e+09
-
-    # do we have enough memory?
-    if (req_memory < memsize) {
-        seg_tile_bands <- .segments_split_tile_bands(tile, bands)
-        samples <- .segments_extract_data(seg_tile_bands,
-                                          tile,
-                                          bands,
-                                          pol_id,
-                                          n_sam_pol,
-                                          multicores,
-                                          progress)
-    } else {
-        # how many iterations do we need?
-        n_iterations <- ceiling(req_memory / memsize)
-        # retrieve the segments for the tile
-        segments <- .segments_read_vec(tile)
-        seg_tile_bands_lst <- .segments_split_tile_bands_list(
-            tile = tile,
-            bands = bands,
-            segments = segments,
-            n_iterations = n_iterations,
-            output_dir = output_dir)
-        samples <- purrr::map(seg_tile_bands_lst, function(seg_tile_bands){
-            samples_part <- .segments_extract_data(seg_tile_bands,
-                                                   tile,
-                                                   bands,
-                                                   pol_id,
-                                                   n_sam_pol,
-                                                   multicores,
-                                                   progress)
-            return(samples_part)
-        })
-        samples <- dplyr::bind_rows(samples)
-    }
-    return(samples)
 }

@@ -58,6 +58,8 @@
     }
     # Remove remaining incomplete fractions files
     unlink(out_files)
+    # Get band configuration
+    band_conf <- .conf("default_values", "INT2S")
     # Create chunks as jobs
     chunks <- .tile_chunks_create(tile = feature, overlap = 0, block = block)
     # Process jobs sequentially
@@ -79,7 +81,6 @@
         # Apply the non-negative least squares solver
         values <- mixture_fn(values = as.matrix(values))
         # Prepare fractions to be saved
-        band_conf <- .tile_band_conf(tile = feature, band = out_fracs)
         offset <- .offset(band_conf)
         if (!is.null(offset) && offset != 0) {
             values <- values - offset
@@ -105,8 +106,13 @@
     })
     # Merge blocks into a new eo_cube tile feature
     fracs_feature <- .tile_eo_merge_blocks(
-        files = out_files, bands = out_fracs, base_tile = feature,
-        block_files = block_files, multicores = 1, update_bbox = FALSE
+        files = out_files,
+        bands = out_fracs,
+        band_conf = band_conf,
+        base_tile = feature,
+        block_files = block_files,
+        multicores = 1,
+        update_bbox = FALSE
     )
     # Return a eo_cube tile feature
     fracs_feature
@@ -154,7 +160,7 @@
     em_mtx <- .endmembers_as_matrix(em)
     mixture_fn <- function(values) {
         # Check values length
-        input_pixels <- nrow(values)
+        n_input_pixels <- nrow(values)
         # Process NNLS solver and return
         values <- C_nnls_solver_batch(
             x = as.matrix(values),
@@ -162,7 +168,7 @@
             rmse = rmse
         )
         # Are the results consistent with the data input?
-        .check_processed_values(values, input_pixels)
+        .check_processed_values(values, n_input_pixels)
         # Return values
         values
     }
@@ -177,17 +183,18 @@
 #' @param  em       Endmember values
 #' @return          Type of endmember value specification (csv of tbl_df)
 .endmembers_type <- function(em) {
+    .check_set_caller(".endmembers_type")
     if (is.data.frame(em)) {
         "tbl_df"
     } else if (is.character(em)) {
         ext <- tolower(.file_ext(em))
-        if (ext %in% c("csv")) {
+        if (ext == "csv") {
             ext
         } else {
-            stop("not supported extension '", ext, "'")
+            stop(.conf("messages", ".endmembers_type"))
         }
     } else {
-        stop("invalid 'endmembers' parameter type")
+        stop(.conf("messages", ".endmembers_type"))
     }
 }
 #' @title Switch over type of endmembers table
@@ -196,9 +203,7 @@
 #' @param  em       Endmember values
 #' @return          Valid endmember specification (csv of tbl_df)
 .endmembers_switch <- function(em, ...) {
-    switch(.endmembers_type(em),
-        ...
-    )
+    switch(.endmembers_type(em), ...)
 }
 #' @title Convert endmembers specification to data.frame
 #' @keywords internal
@@ -208,8 +213,8 @@
 .endmembers_as_tbl <- function(em) {
     em <- .endmembers_switch(
         em,
-        "tbl_df" = em,
-        "csv" = utils::read.csv(em)
+        tbl_df = em,
+        csv = utils::read.csv(em)
     )
     # Ensure that all columns are in uppercase
     dplyr::rename_with(em, toupper)

@@ -84,6 +84,7 @@
     suppressWarnings(
         terra::rast(x = r_obj, nlyrs = nlayers, ...)
     )
+
 }
 #' @title Open a raster object based on a file
 #' @keywords internal
@@ -93,9 +94,13 @@
 #' @return           Terra raster object
 #' @export
 .raster_open_rast.terra <- function(file, ...) {
-    suppressWarnings(
+    r_obj <- suppressWarnings(
         terra::rast(x = .file_normalize(file), ...)
     )
+    .check_null_parameter(r_obj)
+    # remove gain and offset applied by terra
+    terra::scoff(r_obj) <- NULL
+    r_obj
 }
 #' @title Write values to a terra raster object based on a file
 #' @keywords internal
@@ -114,7 +119,7 @@
                                      overwrite, ...,
                                      missing_value = NA) {
     # set caller to show in errors
-    .check_set_caller(".raster_write_rast.terra")
+    .check_set_caller(".raster_write_rast_terra")
 
     suppressWarnings(
         terra::writeRaster(
@@ -130,10 +135,7 @@
         )
     )
     # was the file written correctly?
-    .check_file(
-        x = file,
-        msg = "unable to write raster object"
-    )
+    .check_file(file)
     return(invisible(r_obj))
 }
 #' @title Create raster object
@@ -216,7 +218,7 @@
     r_obj <- .raster_open_rast.terra(file = path.expand(files), ...)
 
     # start read
-    if (purrr::is_null(block)) {
+    if (.has_not(block)) {
         # read values
         terra::readStart(r_obj)
         values <- terra::readValues(
@@ -430,7 +432,22 @@
 .raster_yres.terra <- function(r_obj, ...) {
     terra::yres(x = r_obj)
 }
-
+#' @keywords internal
+#' @noRd
+#' @export
+.raster_scale.terra <- function(r_obj, ...) {
+    # check value
+    i <- 1
+    while (is.na(r_obj[i])) {
+        i <- i + 1
+    }
+    value <- r_obj[i]
+    if (value > 1.0 && value <= 10000)
+        scale_factor <- 0.0001
+    else
+        scale_factor <- 1.0
+    return(scale_factor)
+}
 #' @keywords internal
 #' @noRd
 #' @export
@@ -457,6 +474,21 @@
 #'
 .raster_freq.terra <- function(r_obj, ...) {
     terra::freq(x = r_obj, bylayer = TRUE)
+}
+
+#' @title Raster package internal raster data type
+#' @name .raster_datatype
+#' @keywords internal
+#' @noRd
+#' @author Felipe Carvalho, \email{felipe.carvalho@@inpe.br}
+#'
+#' @param r_obj     raster package object
+#' @param by_layer  A logical value indicating the type of return
+#' @param ...      additional parameters to be passed to raster package
+#'
+#' @return A character value with data type
+.raster_datatype.terra <- function(r_obj, ..., by_layer = TRUE) {
+    terra::datatype(x = r_obj, bylyr = by_layer)
 }
 
 #' @title Summary values of terra object
@@ -504,6 +536,6 @@
 #' @keywords internal
 #' @noRd
 #' @export
-.raster_polygonize.terra <- function(r_obj, dissolve = TRUE, ...) {
+.raster_extract_polygons.terra <- function(r_obj, dissolve = TRUE, ...) {
     terra::as.polygons(r_obj, dissolve = TRUE, ...)
 }

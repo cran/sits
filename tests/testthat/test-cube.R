@@ -4,11 +4,19 @@ test_that("List collections", {
     expect_true(grepl("DEAFRICA", col))
     expect_true(grepl("LANDSAT", col))
     expect_true(grepl("BDC", col))
+    expect_true(grepl("CDSE", col))
     col_bdc <- capture_output(sits_list_collections(source = "BDC"))
     expect_true(grepl("CBERS-WFI-16D", col_bdc))
     expect_true(grepl("CBERS-WFI-8D", col_bdc))
 })
+
 test_that("api_source", {
+    res_s2_b2 <- .source_bands_resolution(
+        source = "CDSE",
+        collection = "SENTINEL-2-L2A",
+        bands = "B02"
+    )
+    expect_equal(res_s2_b2[["B02"]], 10)
     res_s2_b8a <- .source_bands_resolution(
         source = "MPC",
         collection = "SENTINEL-2-L2A",
@@ -56,6 +64,7 @@ test_that("api_source", {
     )
     expect_true(token_bdc)
 })
+
 test_that("Reading a raster cube", {
     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
     raster_cube <- sits_cube(
@@ -89,766 +98,94 @@ test_that("Reading a raster cube", {
     expect_true(params_2$ncols == 255)
     expect_true(params_2$xres >= 231.5)
 })
-test_that("Creating cubes from BDC - CBERS-WFI-16D", {
-    tiles <- c("007004", "007005")
-    start_date <- "2021-09-01"
-    end_date <- "2021-09-30"
-    bands <- c("NDVI", "EVI", "B13", "B14", "B15", "B16", "CLOUD")
-    # create a raster cube
-    cbers_cube_16d <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "CBERS-WFI-16D",
-                tiles = tiles,
-                start_date = start_date,
-                end_date = end_date,
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(cbers_cube_16d),
-                      message = "BDC is not accessible"
-    )
-    # test bands and bbox
-    expect_true(all(sits_bands(cbers_cube_16d) %in% bands))
-    bbox <- sits_bbox(cbers_cube_16d)
-    int_bbox <- .bbox_intersection(bbox, .tile_bbox(cbers_cube_16d))
-    expect_true(all(int_bbox == sits_bbox(.tile(cbers_cube_16d))))
-    # test timeline
-    timeline <- sits_timeline(cbers_cube_16d)
-    expect_true(timeline[1] <= as.Date(start_date))
-    expect_true(timeline[length(timeline)] <= as.Date(end_date))
-    # test raster obj
-    r_obj <- .raster_open_rast(cbers_cube_16d$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(cbers_cube_16d)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating cubes from BDC - CBERS-WFI-8D", {
-    tiles <- c("007004", "007005")
-    start_date <- "2022-05-01"
-    end_date <- "2022-08-29"
-    bands <- c("NDVI", "EVI", "B13", "B14", "B15", "B16", "CLOUD")
-    # create a raster cube file from BDC
-    cbers_cube_8d <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "CBERS-WFI-8D",
-                tiles = tiles,
-                start_date = start_date,
-                end_date = end_date,
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(cbers_cube_8d),
-        message = "BDC is not accessible"
-    )
-    expect_true(all(sits_bands(cbers_cube_8d) %in% bands))
-    bbox <- sits_bbox(cbers_cube_8d)
-    int_bbox <- .bbox_intersection(bbox, .tile_bbox(cbers_cube_8d))
-    expect_true(all(int_bbox == sits_bbox(.tile(cbers_cube_8d))))
 
-    timeline <- sits_timeline(cbers_cube_8d)
-    expect_true(timeline[1] <= as.Date(start_date))
-    expect_true(timeline[length(timeline)] <= as.Date(end_date))
-
-    r_obj <- .raster_open_rast(cbers_cube_8d$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(cbers_cube_8d)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating cubes from BDC - based on ROI with shapefile", {
-    shp_file <- system.file(
-        "extdata/shapefiles/mato_grosso/mt.shp",
-        package = "sits"
-    )
-    sf_mt <- sf::read_sf(shp_file)
-    # create a raster cube file based on the information about the files
-    modis_cube <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "MOD13Q1-6",
-                bands = c("NDVI", "EVI"),
-                roi = sf_mt,
-                start_date = "2018-09-01",
-                end_date = "2019-08-29",
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(modis_cube),
-        message = "BDC is not accessible"
-    )
-    expect_true(all(sits_bands(modis_cube) %in% c("NDVI", "EVI")))
-    bbox <- sits_bbox(modis_cube, as_crs = "EPSG:4326")
-    bbox_shp <- sf::st_bbox(sf_mt)
-    expect_lt(bbox["xmin"], bbox_shp["xmin"])
-    expect_lt(bbox["ymin"], bbox_shp["ymin"])
-    expect_gt(bbox["xmax"], bbox_shp["xmax"])
-    expect_gt(bbox["ymax"], bbox_shp["ymax"])
-    intersects <- .cube_intersects(modis_cube, sf_mt)
-    expect_true(all(intersects))
-})
-test_that("Creating cubes from BDC - invalid roi", {
-    expect_error(
-        object = sits_cube(
-            source = "BDC",
-            collection = "MOD13Q1-6",
-            bands = c("NDVI", "EVI"),
-            roi = c(TRUE, FALSE),
-            start_date = "2018-09-01",
-            end_date = "2019-08-29",
-            progress = FALSE
-        )
-    )
-    expect_error(
-        object = sits_cube(
-            source = "BDC",
-            collection = "MOD13Q1-6",
-            bands = c("NDVI", "EVI"),
-            roi = c(
-                lon_min = -55.20997,
-                lat_min = 15.40554,
-                lon_max = -55.19883,
-                lat_max = -15.39179
-            ),
-            tiles = "012010",
-            start_date = "2018-09-01",
-            end_date = "2019-08-29",
-            progress = FALSE
-        )
-    )
-})
-test_that("Creating cubes from BDC - LANDSAT per tile", {
-    tile <- "038046"
-    start_date <- "2021-05-01"
-    end_date <- "2021-09-30"
-    bands <- c("NDVI", "EVI")
-    # create a raster cube file based on the information about the files
-    bdc_l8_cube <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "LANDSAT-OLI-16D",
-                bands = bands,
-                tiles = tile,
-                start_date = start_date,
-                end_date = end_date,
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-
-    testthat::skip_if(purrr::is_null(bdc_l8_cube),
-        message = "BDC cube LANDSAT-OLI-16D is not accessible"
-    )
-    expect_equal(bdc_l8_cube$tile, tile)
-    expect_true(all(sits_bands(bdc_l8_cube) %in% bands))
-    # test timeline
-    timeline <- sits_timeline(bdc_l8_cube)
-    expect_true(timeline[1] <= as.Date(start_date))
-    expect_true(timeline[length(timeline)] <= as.Date(end_date))
-    # test raster obj
-    r_obj <- .raster_open_rast(bdc_l8_cube$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(bdc_l8_cube)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating cubes from BDC - LANDSAT per roi", {
-    roi <- c(
-        lon_min = -53.9311, lat_min = -13.2697,
-        lon_max = -53.0595, lat_max = -12.6704
-    )
-    start_date <- "2021-05-01"
-    end_date <- "2021-09-30"
-    bands <- c("NDVI", "EVI")
-    # create a raster cube file based on the information about the files
-    bdc_l8_cube <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "LANDSAT-OLI-16D",
-                bands = bands,
-                roi = roi,
-                start_date = start_date,
-                end_date = end_date,
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-
-    testthat::skip_if(purrr::is_null(bdc_l8_cube),
-        message = "BDC cube LANDSAT-OLI-16D is not accessible"
-    )
-    expect_true(all(sits_bands(bdc_l8_cube) %in% bands))
-    bbox_cube <- sits_bbox(bdc_l8_cube, as_crs = "EPSG:4326")
-    intersects <- .cube_intersects(bdc_l8_cube, roi)
-    expect_true(all(intersects))
-    # test timeline
-    timeline <- sits_timeline(bdc_l8_cube)
-    expect_true(timeline[1] <= as.Date(start_date))
-    expect_true(timeline[length(timeline)] <= as.Date(end_date))
-    # test raster obj
-    r_obj <- .raster_open_rast(bdc_l8_cube$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(bdc_l8_cube)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating cubes from BDC - SENTINEL-2 - roi", {
-    roi <- c(
-        lon_min = -53.9311, lat_min = -13.2697,
-        lon_max = -53.0595, lat_max = -12.6704
-    )
-    start_date <- "2021-05-01"
-    end_date <- "2021-09-30"
-    bands <- c("NDVI", "EVI")
-    # create a raster cube
-    bdc_s2_cube <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "SENTINEL-2-16D",
-                bands = bands,
-                roi = roi,
-                start_date = start_date,
-                end_date = end_date,
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(bdc_s2_cube),
-        message = "BDC cube SENTINEL-2-16D is not accessible"
-    )
-    expect_true(all(sits_bands(bdc_s2_cube) %in% c("NDVI", "EVI")))
-    bbox_cube <- sits_bbox(bdc_s2_cube, as_crs = "EPSG:4326")
-    intersects <- .cube_intersects(bdc_s2_cube, roi)
-    expect_true(all(intersects))
-    # test timeline
-    timeline <- sits_timeline(bdc_s2_cube)
-    expect_true(timeline[1] <= as.Date(start_date))
-    expect_true(timeline[length(timeline)] <= as.Date(end_date))
-    # test raster obj
-    r_obj <- .raster_open_rast(bdc_s2_cube$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(bdc_s2_cube)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating cubes from BDC - SENTINEL-2 - tile", {
-    start_date <- "2021-05-01"
-    end_date <- "2021-09-30"
-    bands <- c("NDVI", "EVI")
-    tiles <- "021019"
-    # create a raster cube file
-    bdc_s2_cube_t <- .try(
-        {
-            sits_cube(
-                source = "BDC",
-                collection = "SENTINEL-2-16D",
-                bands = bands,
-                tiles = tiles,
-                start_date = start_date,
-                end_date = end_date,
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-
-    testthat::skip_if(purrr::is_null(bdc_s2_cube_t),
-        message = "BDC cube SENTINEL-2-16D is not accessible"
-    )
-    expect_true(all(sits_bands(bdc_s2_cube_t) %in% c("NDVI", "EVI")))
-    # test timeline
-    timeline <- sits_timeline(bdc_s2_cube_t)
-    expect_true(timeline[1] <= as.Date(start_date))
-    expect_true(timeline[length(timeline)] <= as.Date(end_date))
-    # test raster obj
-    r_obj <- .raster_open_rast(bdc_s2_cube_t$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(bdc_s2_cube_t)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating cubes from DEA", {
-    # try to create a DEA cube
-    dea_cube <- .try(
-        {
-            sits_cube(
-                source = "DEAFRICA",
-                collection = "s2_l2a",
-                bands = c("B01", "B04", "B05"),
-                roi = c(
-                    lon_min = 17.379,
-                    lat_min = 1.1573,
-                    lon_max = 17.410,
-                    lat_max = 1.1910
-                ),
-                start_date = "2019-01-01",
-                end_date = "2019-10-28",
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(dea_cube),
-        message = "DEAFRICA is not accessible"
-    )
-    expect_true(all(sits_bands(dea_cube) %in% c("B01", "B04", "B05")))
-    r <- .raster_open_rast(.tile_path(dea_cube))
-    expect_equal(dea_cube$xmax[[1]], .raster_xmax(r), tolerance = 1)
-    expect_equal(dea_cube$xmin[[1]], .raster_xmin(r), tolerance = 1)
-})
-test_that("Creating cubes from DEA - error using tiles", {
-    expect_error(
-        object = {
-            dea_cube <-
-                sits_cube(
-                    source = "DEAFRICA",
-                    collection = "s2_l2a",
-                    bands = c("B01", "B04", "B05"),
-                    tiles = "37MEP",
-                    start_date = "2019-01-01",
-                    end_date = "2019-10-28",
-                    progress = FALSE
-                )
-        },
-        regexp = "DEAFRICA cubes do not support searching for tiles"
-    )
-})
-test_that("Creating Sentinel cubes from MPC", {
-    mpc_token <- Sys.getenv("MPC_TOKEN")
-    Sys.setenv("MPC_TOKEN" = "")
+test_that("Combining Sentinel-1 with Sentinel-2 cubes", {
     s2_cube <- .try(
         {
             sits_cube(
                 source = "MPC",
                 collection = "SENTINEL-2-L2A",
                 tiles = "20LKP",
-                bands = c("B05", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
+                bands = c("B02", "B8A", "B11", "CLOUD"),
+                start_date = "2020-06-01",
+                end_date = "2020-09-28"
             )
         },
         .default = NULL
     )
+
+    dir_images <- paste0(tempdir(), "/images_merge/")
+    if (!dir.exists(dir_images)) {
+        suppressWarnings(dir.create(dir_images))
+    }
+
     testthat::skip_if(
         purrr::is_null(s2_cube),
-        "MPC is not accessible"
+        "MPC collection is not accessible"
     )
-    Sys.setenv("MPC_TOKEN" = mpc_token)
-    expect_true(all(sits_bands(s2_cube) %in% c("B05", "CLOUD")))
-    r <- .raster_open_rast(.tile_path(s2_cube))
-    expect_equal(s2_cube$xmax[[1]], .raster_xmax(r), tolerance = 1)
-    expect_equal(s2_cube$xmin[[1]], .raster_xmin(r), tolerance = 1)
-    r_obj <- .raster_open_rast(s2_cube$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(s2_cube)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
 
-    s2_cube_s2a <- .try(
-        {
-            sits_cube(
-                source = "MPC",
-                collection = "SENTINEL-2-L2A",
-                tiles = "20LKP",
-                bands = c("B05", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE,
-                platform = "SENTINEL-2A"
-            )
-        },
-        .default = NULL
-    )
-    n_images_1 <- nrow(s2_cube$file_info[[1]])
-    n_images_2 <- nrow(s2_cube_s2a$file_info[[1]])
-    expect_true(n_images_2 < n_images_1)
-})
-test_that("Creating Sentinel cubes from MPC with ROI", {
-    roi <- c(
-        lon_min = -48.28579, lat_min = -16.05026,
-        lon_max = -47.30839, lat_max = -15.50026
-    )
-    s2_cube_mpc <- .try(
-        {
-            sits_cube(
-                source = "MPC",
-                collection = "SENTINEL-2-L2A",
-                roi = roi,
-                bands = c("B05", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(s2_cube_mpc), "MPC is not accessible")
-    expect_true(all(sits_bands(s2_cube_mpc) %in% c("B05", "CLOUD")))
-    expect_equal(nrow(s2_cube_mpc), 3)
-    bbox_cube <- sits_bbox(s2_cube_mpc, as_crs = "EPSG:4326")
-    bbox_cube_1 <- sits_bbox(.tile(s2_cube_mpc), as_crs = "EPSG:4326")
-    expect_true(bbox_cube["xmax"] >= bbox_cube_1["xmax"])
-    expect_true(bbox_cube["ymax"] >= bbox_cube_1["ymax"])
-    r_obj <- .raster_open_rast(s2_cube_mpc$file_info[[1]]$path[1])
-    cube_nrows <- .tile_nrows(s2_cube_mpc)
-    expect_true(.raster_nrows(r_obj) == cube_nrows)
-})
-test_that("Creating LANDSAT cubes from MPC with ROI", {
-    roi <- c(
-        lon_min = -48.28579, lat_min = -16.05026,
-        lon_max = -47.30839, lat_max = -15.50026
-    )
-    mpc_token <- Sys.getenv("MPC_TOKEN")
-    Sys.setenv("MPC_TOKEN" = "")
-    l8_cube_mpc <- .try(
-        {
-            sits_cube(
-                source = "MPC",
-                collection = "LANDSAT-C2-L2",
-                roi = roi,
-                bands = c("NIR08", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(l8_cube_mpc), "MPC is not accessible")
-    Sys.setenv("MPC_TOKEN" = mpc_token)
 
-    expect_true(all(sits_bands(l8_cube_mpc) %in% c("NIR08", "CLOUD")))
-    expect_equal(nrow(l8_cube_mpc), 2)
-    bbox_cube <- sits_bbox(l8_cube_mpc, as_crs = "EPSG:4326")
-    bbox_cube_1 <- sits_bbox(.tile(l8_cube_mpc), as_crs = "EPSG:4326")
-    expect_true(bbox_cube["xmax"] >= bbox_cube_1["xmax"])
-    expect_true(bbox_cube["ymax"] >= bbox_cube_1["ymax"])
-    r_obj <- .raster_open_rast(l8_cube_mpc$file_info[[1]]$path[1])
-    tile_nrows <- .tile_nrows(l8_cube_mpc)[[1]]
-    expect_true(.raster_nrows(r_obj) == tile_nrows)
-})
-test_that("Creating LANDSAT cubes from MPC with WRS", {
-    expect_error(
-        sits_cube(
-                source = "MPC",
-                collection = "LANDSAT-C2-L2",
-                tiles = "223067",
-                bands = c("NIR08", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
-            )
-    )
-})
-test_that("Creating Harmonized Landsat Sentinel HLSS30 cubes", {
-    roi <- c(
-        lon_min = -48.28579, lat_min = -16.05026,
-        lon_max = -47.30839, lat_max = -15.50026
-    )
-    hls_cube_s2 <- .try(
-        {
-            sits_cube(
-                source = "HLS",
-                collection = "HLSS30",
-                roi = roi,
-                bands = c("GREEN", "NIR-NARROW", "SWIR-1", "CLOUD"),
-                start_date = as.Date("2020-05-01"),
-                end_date = as.Date("2020-09-01"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(
-        purrr::is_null(hls_cube_s2),
-        "HLSS30 collection is not accessible"
-    )
-    expect_true(all(sits_bands(hls_cube_s2) %in%
-        c("GREEN", "NIR-NARROW", "SWIR-1", "CLOUD")))
-    expect_true(all(hls_cube_s2$satellite == "SENTINEL-2"))
-    expect_true(all(hls_cube_s2$tile %in% c("23LKC", "22LHH", "22LGH")))
-    expect_true(all(.fi(hls_cube_s2)$xres == 30))
-    expect_true(all(.fi(hls_cube_s2)$yres == 30))
-    r_obj <- .raster_open_rast(hls_cube_s2$file_info[[1]]$path[1])
-    tile_nrows <- .tile_nrows(hls_cube_s2)[[1]]
-    expect_true(.raster_nrows(r_obj) == tile_nrows)
-
-    hls_cube_l8 <- .try(
-        {
-            sits_cube(
-                source = "HLS",
-                collection = "HLSL30",
-                roi = roi,
-                bands = c("GREEN", "NIR-NARROW", "SWIR-1", "CLOUD"),
-                start_date = as.Date("2020-05-01"),
-                end_date = as.Date("2020-09-01"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(
-        purrr::is_null(hls_cube_l8),
-        "HLSL30 collection is not accessible"
-    )
-    expect_true(all(sits_bands(hls_cube_l8) %in%
-        c("GREEN", "NIR-NARROW", "SWIR-1", "CLOUD")))
-    expect_true(all(hls_cube_l8$satellite == "LANDSAT-8"))
-    expect_true(all(hls_cube_l8$tile %in% c("23LKC", "22LHH", "22LGH")))
-    expect_true(all(.fi(hls_cube_l8)$xres == 30))
-    expect_true(all(.fi(hls_cube_l8)$yres == 30))
-
-    hls_cube_merge <- sits_merge(hls_cube_s2, hls_cube_l8)
-    merge_23LKC <- dplyr::filter(hls_cube_merge, tile == "23LKC")
-    s2_23LKC <- dplyr::filter(hls_cube_s2, tile == "23LKC")
-    l8_23LKC <- dplyr::filter(hls_cube_l8, tile == "23LKC")
-    expect_true(all(sits_timeline(merge_23LKC) %in%
-        c(sits_timeline(l8_23LKC), sits_timeline(s2_23LKC))))
-
-    expect_error(
-            sits_cube(
-                source = "HLS",
-                collection = "HLSS30",
-                tiles = "20LKP",
-                bands = c("GREEN", "NIR-NARROW", "SWIR-1", "CLOUD"),
-                start_date = as.Date("2020-05-01"),
-                end_date = as.Date("2020-09-01"),
-                progress = FALSE
-            )
-    )
-    netrc_file <- "~/.netrc"
-    file.rename(netrc_file, "~/.netrc_save")
-    expect_error(
-        sits_cube(
-            source = "HLS",
-            collection = "HLSS30",
-            roi = roi,
-            bands = c("GREEN", "NIR-NARROW", "SWIR-1", "CLOUD"),
-            start_date = as.Date("2020-05-01"),
-            end_date = as.Date("2020-09-01"),
-            progress = FALSE
+    s2_reg <- suppressWarnings(
+        sits_regularize(
+            cube = s2_cube,
+            period = "P30D",
+            res = 240,
+            multicores = 2,
+            output_dir = dir_images
         )
     )
-    expect_true(file.rename("~/.netrc_save", "~/.netrc"))
-    if (file.exists("./.rcookies"))
-        unlink("./.rcookies")
 
-})
-test_that("Creating Sentinel cubes from AWS", {
-    s2_cube <- .try(
+    s1_cube <- .try(
         {
             sits_cube(
-                source = "AWS",
-                collection = "SENTINEL-2-L2A",
-                tiles = c("20LKP", "20LLP"),
-                bands = c("B05", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(
-        purrr::is_null(s2_cube),
-        "AWS is not accessible"
-    )
-    expect_true(all(sits_bands(s2_cube) %in% c("B05", "CLOUD")))
-    r <- .raster_open_rast(.tile_path(s2_cube))
-    expect_equal(s2_cube$xmax[[1]], .raster_xmax(r), tolerance = 1)
-    expect_equal(s2_cube$xmin[[1]], .raster_xmin(r), tolerance = 1)
-
-    sum_cube <- capture.output(summary(s2_cube))
-
-    expect_true(any(grepl("B05", sum_cube)))
-
-    v_s2 <- sits_view(
-        x = s2_cube,
-        band = "B05",
-        dates = "2018-07-19",
-        palette = "Greens"
-    )
-    expect_true(grepl("EPSG3857", v_s2$x$options$crs$crsClass))
-    expect_equal(v_s2$x$calls[[1]]$method, "addProviderTiles")
-    v_s2rgb <- sits_view(
-        x = s2_cube,
-        red = "B05",
-        green = "B05",
-        blue = "B05",
-        dates = "2018-07-19"
-    )
-
-
-    s2_cube_s2a <- .try(
-        {
-            sits_cube(
-                source = "AWS",
-                collection = "SENTINEL-2-L2A",
+                source = "MPC",
+                collection = "SENTINEL-1-GRD",
+                bands = c("VV", "VH"),
+                orbit = "descending",
                 tiles = "20LKP",
-                bands = c("B05", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE,
-                platform = "SENTINEL-2A"
+                start_date = "2020-06-01",
+                end_date = "2020-09-28"
             )
         },
         .default = NULL
     )
-    n_images_1 <- nrow(s2_cube$file_info[[1]])
-    n_images_2 <- nrow(s2_cube_s2a$file_info[[1]])
-    expect_true(n_images_2 < n_images_1)
-})
-test_that("Creating LANDSAT cubes from AWS with ROI", {
-    roi <- c(
-        lon_min = -47.50, lat_min = -15.80,
-        lon_max = -47.30, lat_max = -15.50026
-    )
-    l8_cube_aws <- .try(
-        {
-            sits_cube(
-                source = "AWS",
-                collection = "LANDSAT-C2-L2",
-                roi = roi,
-                bands = c("NIR08", "CLOUD"),
-                start_date = as.Date("2022-07-18"),
-                end_date = as.Date("2022-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(l8_cube_aws), "AWS is not accessible")
-    expect_true(all(sits_bands(l8_cube_aws) %in% c("NIR08", "CLOUD")))
-    expect_equal(nrow(l8_cube_aws), 1)
-    bbox_cube <- sits_bbox(l8_cube_aws, as_crs = "EPSG:4326")
-    bbox_cube_1 <- sits_bbox(.tile(l8_cube_aws), as_crs = "EPSG:4326")
-    expect_true(bbox_cube["xmax"] >= bbox_cube_1["xmax"])
-    expect_true(bbox_cube["ymax"] >= bbox_cube_1["ymax"])
-    r_obj <- .raster_open_rast(l8_cube_aws$file_info[[1]]$path[1])
-    tile_nrows <- .tile_nrows(l8_cube_aws)[[1]]
-    expect_true(.raster_nrows(r_obj) == tile_nrows)
 
-    l8_cube_aws_l8 <- .try(
-        {
-            sits_cube(
-                source = "AWS",
-                collection = "LANDSAT-C2-L2",
-                roi = roi,
-                bands = c("NIR08", "CLOUD"),
-                start_date = as.Date("2022-07-18"),
-                end_date = as.Date("2022-08-23"),
-                progress = FALSE,
-                platform = "LANDSAT-8"
-            )
-        },
-        .default = NULL
+    testthat::skip_if(
+        purrr::is_null(s1_cube),
+        "MPC collection is not accessible"
     )
-    num_files_1 <- nrow(l8_cube_aws$file_info[[1]])
-    num_files_2 <- nrow(l8_cube_aws_l8$file_info[[1]])
-    expect_true(num_files_2 < num_files_1)
+
+    s1_reg <- suppressWarnings(
+        sits_regularize(
+            cube = s1_cube,
+            period = "P30D",
+            res = 240,
+            tiles = "20LKP",
+            multicores = 2,
+            output_dir = dir_images
+        )
+    )
+
+    # Merging images without writing
+    cube_merged <- sits_merge(
+        s2_reg,
+        s1_reg
+    )
+    testthat::expect_true(
+        all(
+            sits_bands(cube_merged) %in% c(sits_bands(s2_reg),
+                                           sits_bands(s1_reg)))
+    )
+    testthat::expect_error(
+        sits_merge(
+            s2_cube,
+            s1_cube
+        )
+    )
+
+    unlink(list.files(dir_images, pattern = ".tif", full.names = TRUE))
 })
 
-test_that("Creating LANDSAT cubes from AWS with WRS", {
-    l8_cube_aws_wrs <- .try(
-        {
-            sits_cube(
-                source = "AWS",
-                collection = "LANDSAT-C2-L2",
-                tiles = "223067",
-                bands = c("NIR08", "CLOUD"),
-                start_date = as.Date("2022-07-18"),
-                end_date = as.Date("2022-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(l8_cube_aws_wrs), "AWS is not accessible")
-    expect_true(all(sits_bands(l8_cube_aws_wrs) %in% c("NIR08", "CLOUD")))
-    expect_equal(nrow(l8_cube_aws_wrs), 1)
-    r_obj <- .raster_open_rast(l8_cube_aws_wrs$file_info[[1]]$path[1])
-    tile_nrows <- .tile_nrows(l8_cube_aws_wrs)[[1]]
-    expect_true(.raster_nrows(r_obj) == tile_nrows)
-})
-
-test_that("Creating LANDSAT cubes from USGS with ROI", {
-    roi <- c(
-        lon_min = -48.28579, lat_min = -16.05026,
-        lon_max = -47.30839, lat_max = -15.50026
-    )
-    l8_cube_usgs <- .try(
-        {
-            sits_cube(
-                source = "USGS",
-                collection = "LANDSAT-C2L2-SR",
-                roi = roi,
-                bands = c("NIR08", "CLOUD"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(l8_cube_usgs), "USGS is not accessible")
-    expect_true(all(sits_bands(l8_cube_usgs) %in% c("NIR08", "CLOUD")))
-    expect_equal(nrow(l8_cube_usgs), 2)
-    bbox_cube <- sits_bbox(l8_cube_usgs, as_crs = "EPSG:4326")
-    bbox_cube_1 <- sits_bbox(.tile(l8_cube_usgs), as_crs = "EPSG:4326")
-    expect_true(bbox_cube["xmax"] >= bbox_cube_1["xmax"])
-    expect_true(bbox_cube["ymax"] >= bbox_cube_1["ymax"])
-    r_obj <- .raster_open_rast(l8_cube_usgs$file_info[[1]]$path[1])
-    tile_nrows <- .tile_nrows(l8_cube_usgs)[[1]]
-    expect_true(.raster_nrows(r_obj) == tile_nrows)
-})
-test_that("Creating LANDSAT cubes from USGS with WRS", {
-    l8_cube_223067 <- .try(
-        {
-            sits_cube(
-                source = "USGS",
-                collection = "LANDSAT-C2L2-SR",
-                tiles = "223067",
-                bands = c("NIR08"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                platform = "LANDSAT-8",
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(l8_cube_223067), "USGS is not accessible")
-    expect_true(all(sits_bands(l8_cube_223067) %in% c("NIR08")))
-    expect_equal(nrow(l8_cube_223067), 1)
-    r_obj <- .raster_open_rast(l8_cube_223067$file_info[[1]]$path[1])
-    tile_nrows <- .tile_nrows(l8_cube_223067)[[1]]
-    expect_true(.raster_nrows(r_obj) == tile_nrows)
-})
-test_that("Access to SwissDataCube", {
-    roi <- c(
-        lon_min = 7.54, lat_min = 46.73,
-        lon_max = 7.65, lat_max = 46.77
-    )
-    s2_cube_sdc <- .try(
-        {
-            sits_cube(
-                source = "SDC",
-                collection = "S2_L2A_10M_SWISS",
-                roi = roi,
-                bands = c("B08"),
-                start_date = as.Date("2018-07-18"),
-                end_date = as.Date("2018-08-23"),
-                progress = FALSE
-            )
-        },
-        .default = NULL
-    )
-    testthat::skip_if(purrr::is_null(s2_cube_sdc), "SDC is not accessible")
-})
 test_that("testing STAC error", {
     mpc_url <- sits_env$config$sources$MPC$url
     sits_env$config$sources$MPC$url <-

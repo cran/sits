@@ -59,13 +59,21 @@ NULL
     .default(lubridate::as_date(x))
 }
 
-#' @title Check if an input has a value or not. Any zero length
+#' @title Check if variable has been defined. Any zero length
 #'   value of any type is evaluated as \code{FALSE}. This function is broader
 #'   than \code{is.null()} that only accounts for \code{NULL} value.
 #'   Returns \code{logical}.
 #' @noRd
 .has <- function(x) {
     length(x) > 0
+}
+#' @title Check if variable has not been defined. Any zero length
+#'   value of any type is evaluated as \code{FALSE}. This function is broader
+#'   than \code{is.null()} that only accounts for \code{NULL} value.
+#'   Returns \code{logical}.
+#' @noRd
+.has_not <- function(x) {
+    !.has(x)
 }
 
 #' @title Check if an input has names or not. If there is
@@ -201,7 +209,7 @@ NULL
             stop(if (!is.null(.msg_error)) {
                 .msg_error
             } else {
-                e$message
+                e[["message"]]
             })
         }
     )
@@ -227,9 +235,12 @@ NULL
 #' @param ...   Generic entries
 #' @returns Data with function applied
 .by <- function(data, col, fn, ...) {
-    if (!col %in% names(data)) {
-        stop("invalid 'col' parameter: '", col, "' not found in data columns")
-    }
+    # precondition
+    .check_set_caller(".by")
+    .check_chr_within(col,
+                      within = names(data),
+                      discriminator = "any_of")
+
     unname(c(by(data, data[[col]], fn, ...)))
 }
 #' @title Check value is between max and min
@@ -255,7 +266,7 @@ NULL
 #' @param ...   Generic entries (character vectors)
 #' @returns Single character vectors
 .collapse <- function(...) {
-    paste0(..., collapse = ", ")
+    toString(...)
 }
 #' @title Return default value
 #' @noRd
@@ -284,10 +295,8 @@ NULL
 }
 #' @export
 .slice_dfr.numeric <- function(x, i) {
-    .check_that(
-        all(i <= nrow(x)),
-        local_msg = paste("indices must be less or equal than", nrow(x)),
-        msg = "invalid numeric subscript"
-    )
+    # set caller to show in errors
+    .check_set_caller(".slice_dfr_numeric")
+    .check_that(all(i <= nrow(x)))
     x[i, ]
 }

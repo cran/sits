@@ -89,6 +89,10 @@
         )
         # Evaluate expressions
         values <- reclassify_fn(values = values, mask_values = mask_values)
+        # Does values is valid? In case of a matrix with integer(0) values
+        if (.has_not(values)) {
+            values <- rep(NA, .block_size(block))
+        }
         offset <- .offset(band_conf)
         if (.has(offset) && offset != 0) {
             values <- values - offset
@@ -137,10 +141,9 @@
 #' @param  labels_mask     Labels of reclassification mask
 #' @return function to be applied for reclassification
 .reclassify_fn_expr <- function(rules, labels_cube, labels_mask) {
+    .check_set_caller(".reclassify_fn_expr")
     # Check if rules are named
-    if (!all(.has_name(rules))) {
-        stop("rules should be named")
-    }
+    .check_that(all(.has_name(rules)))
     # Get output labels
     labels_rule <- setdiff(names(rules), labels_cube)
     names(labels_rule) <- max(.as_int(names(labels_cube))) +
@@ -152,13 +155,13 @@
     reclassify_fn <- function(values, mask_values) {
         # Check compatibility
         if (!all(dim(values) == dim(mask_values))) {
-            stop("cube and mask values have different sizes")
+            stop(.conf("messages", ".reclassify_fn_cube_mask"))
         }
         # Used to check values (below)
-        input_pixels <- nrow(values)
+        n_input_pixels <- nrow(values)
         # Convert to character vector
-        values <- .as_chr(values)
-        mask_values <- .as_chr(mask_values)
+        values <- as.character(values)
+        mask_values <- as.character(mask_values)
         # New evaluation environment
         env <- list2env(list(
             # Read values and convert to character
@@ -175,22 +178,47 @@
             result <- eval(expr, envir = env)
             # Update values
             if (!is.logical(result)) {
-                stop("expression should evaluate to logical values")
+                stop(.conf("messages", ".reclassify_fn_result"))
             }
             values[result] <- label
         }
         # Get values as numeric
         values <- matrix(
             data = labels_code[match(values, labels)],
-            nrow = input_pixels
+            nrow = n_input_pixels
         )
         # Mask NA values
         values[is.na(env[["mask"]])] <- NA
         # Are the results consistent with the data input?
-        .check_processed_values(values, input_pixels)
+        .check_processed_values(values, n_input_pixels)
         # Return values
         values
     }
     # Return closure
     reclassify_fn
+}
+
+#' @title Obtain new labels on reclassification operation
+#' @keywords internal
+#' @noRd
+#' @author Rolf Simoes, \email{rolf.simoes@@inpe.br}
+#' @param  cube            Labelled data cube
+#' @param  rules           Rules to be applied
+#' @return new labels to be applied to the cube
+
+.reclassify_new_labels <- function(cube, rules) {
+    # Get cube labels
+    cube_labels <- .cube_labels(cube, dissolve = FALSE)[[1]]
+    # Get rules new labels
+    new_labels <- setdiff(names(rules), cube_labels)
+    # Does rules has new labels in the composition?
+    if (.has(new_labels) > 0) {
+        # Get the next index
+        next_idx <- max(as.numeric(names(cube_labels))) + 1
+        idx_values <- seq.int(
+            from = next_idx, to = next_idx + length(new_labels) - 1
+        )
+        names(new_labels) <- as.character(idx_values)
+    }
+    return(c(cube_labels, new_labels))
 }

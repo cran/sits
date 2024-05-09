@@ -10,32 +10,35 @@
 #'              CSV file used to retrieve data from
 #'              ground information ("latitude", "longitude", "start_date",
 #'              "end_date", "cube", "label").
+#'              If the file is NULL, returns a data.frame as an object
 #'
 #' @param  data       Time series (tibble of class "sits").
 #' @param  file       Full path of the exported CSV file
 #'                    (valid file name with extension ".csv").
-#' @return            Called for side effects
+#' @return            Return data.frame with CSV columns (optional)
 #'
 #' @examples
 #' csv_file <- paste0(tempdir(), "/cerrado_2classes.csv")
 #' sits_to_csv(cerrado_2classes, file = csv_file)
 #' @export
 #'
-sits_to_csv <- function(data, file) {
+sits_to_csv <- function(data, file = NULL) {
     # set caller to show in errors
     .check_set_caller("sits_to_csv")
     UseMethod("sits_to_csv", data)
 }
 #' @rdname sits_to_csv
 #' @export
-sits_to_csv.sits <- function(data, file) {
+sits_to_csv.sits <- function(data, file = NULL) {
     # check the samples are valid
     data <- .check_samples(data)
     # check the file name is valid
-    .check_file(file,
-                extensions = "csv",
-                file_exists = FALSE,
-                msg = "invalid file name")
+    if (.has(file))
+        .check_file(
+            x = file,
+            extensions = "csv",
+            file_exists = FALSE
+        )
     # select the parts of the tibble to be saved
     csv_columns <- .conf("df_sample_columns")
     csv <- dplyr::select(data, dplyr::all_of(csv_columns))
@@ -45,23 +48,23 @@ sits_to_csv.sits <- function(data, file) {
     # join the two tibbles
     csv <- dplyr::bind_cols(id, csv)
     # write the CSV file
-    utils::write.csv(csv, file, row.names = FALSE, quote = FALSE)
-    return(invisible(data))
+    if (.has(file))
+        utils::write.csv(csv, file, row.names = FALSE, quote = FALSE)
+    return(csv)
 }
 #' @rdname sits_to_csv
 #' @export
 sits_to_csv.tbl_df <- function(data, file) {
     data <- tibble::as_tibble(data)
-    if (all(.conf("sits_tibble_cols") %in% colnames(data))) {
+    if (all(.conf("sits_tibble_cols") %in% colnames(data)))
         class(data) <- c("sits", class(data))
-    } else
-        stop("Input should be a sits tibble")
+    else
+        stop(.conf("messages", "sits_to_csv_default"))
     data <- sits_to_csv(data, file)
     return(invisible(data))
 }
 #' @rdname sits_to_csv
 #' @export
 sits_to_csv.default <- function(data, file) {
-    stop("input should be an object of class sits")
-
+    stop(.conf("messages", "sits_to_csv_default"))
 }

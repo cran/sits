@@ -80,41 +80,35 @@ sits_tuning <- function(samples,
     # pre-conditions
     # check samples
     .check_samples_train(samples)
-    # check samples_validation parameter if it is passed
-    if (!purrr::is_null(samples_validation)) {
+    if (.has(samples_validation)) {
+        # check samples_validation parameter if it exists
         .check_samples_train(samples_validation)
-    }
-    # check validation_split parameter if samples_validation is not passed
-    if (purrr::is_null(samples_validation)) {
+    } else {
+        # check validation_split parameter if samples_validation is not passed
         .check_num_parameter(validation_split, exclusive_min = 0, max = 0.5)
     }
+
     # check 'ml_functions' parameter
     ml_function <- substitute(ml_method, env = environment())
-    if (is.call(ml_function)) ml_function <- ml_function[[1]]
+    if (is.call(ml_function))
+        ml_function <- ml_function[[1]]
     ml_function <- eval(ml_function, envir = asNamespace("sits"))
     # check 'params' parameter
-    .check_lst(
-        x = params,
-        min_len = 1,
-        msg = "invalid 'params' parameter"
-    )
-    .check_that(
-        x = !"samples" %in% names(params),
-        local_msg = "cannot pass 'samples' via hyper-parameters",
-        msg = "invalid 'params' parameter"
+    .check_lst_parameter(params, len_min = 1)
+    .check_that(!"samples" %in% names(params),
+        msg = .conf("messages", "sits_tuning_samples")
     )
     params_default <- formals(ml_function)
     .check_chr_within(
         x = names(params),
-        within = names(params_default),
-        msg = "invalid 'params' parameter"
+        within = names(params_default)
     )
     # update formals with provided parameters in params
     params <- utils::modifyList(params_default, params)
     # check trials
     .check_int_parameter(trials)
     # check 'multicores' parameter
-    .check_multicores(multicores, min = 1, max = 2048)
+    .check_int_parameter(multicores, min = 1, max = 2048)
     # generate random params
     params_lst <- purrr::map(
         as.list(seq_len(trials)),

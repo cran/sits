@@ -24,6 +24,7 @@ sits_classify(
   ml_model,
   ...,
   filter_fn = NULL,
+  impute_fn = impute_linear(),
   multicores = 2L,
   gpu_memory = 16,
   progress = TRUE
@@ -35,6 +36,7 @@ sits_classify(
   ...,
   roi = NULL,
   filter_fn = NULL,
+  impute_fn = impute_linear(),
   start_date = NULL,
   end_date = NULL,
   memsize = 8L,
@@ -54,7 +56,9 @@ sits_classify(
   data,
   ml_model,
   ...,
+  roi = NULL,
   filter_fn = NULL,
+  impute_fn = impute_linear(),
   start_date = NULL,
   end_date = NULL,
   memsize = 8L,
@@ -62,7 +66,7 @@ sits_classify(
   gpu_memory = 16,
   output_dir,
   version = "v1",
-  n_sam_pol = 40,
+  n_sam_pol = NULL,
   verbose = FALSE,
   progress = TRUE
 )
@@ -84,6 +88,8 @@ sits_classify(
 (integer, min = 1, max = 2048).}
 
 \item{progress}{Logical: Show progress bar?}
+
+\item{impute_fn}{Imputation function to remove NA.}
 
 \item{gpu_memory}{Memory available in GPU in GB (default = 16)}
 
@@ -150,6 +156,11 @@ The \code{roi} parameter defines a region of interest. It can be
 
    When using a GPU for deep learning, \code{gpu_memory} indicates the
    memory of available in the graphics card.
+   It is not possible to have an exact idea of the size of Deep Learning
+   models in GPU memory, as the complexity of the model and factors
+   such as CUDA Context increase the size of the model in memory.
+   Therefore, we recommend that you leave at least 1GB free on the
+   video card to store the Deep Learning model that will be used.
 
    For classifying vector data cubes created by
    \code{\link[sits]{sits_segment}},
@@ -215,9 +226,8 @@ if (sits_run_examples()) {
         data = segments,
         ml_model = rf_model,
         output_dir = tempdir(),
-        n_sam_pol = 20,
         multicores = 4,
-        version = "segs_classify"
+        version = "segs"
     )
     # Create a labelled vector cube
     class_segs <- sits_label_classification(

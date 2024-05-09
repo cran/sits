@@ -1,6 +1,39 @@
 # SITS Release History
 
+# What's new in SITS version 1.5
+### New features in SITS version 1.5.0
+* Support for SENTINEL-1-RTC and SENTINEL-2-L2A in CDSE
+* Include support for DEA products SENTINEL-1-RTC, LS5-SR, LS7-SR, LS9-SR, ALOS-PALSAR-MOSAIC, NDVI ANOMALY, DAILY CHIRPS, MONTHLY CHIRPS and DEM-30
+* Support for Sentinel-1 GRD and RTC collections from Planetary Computer
+* Include parameter tile to select data from Sentinel-1 (MPC) 
+* Include parameter tile to select data from Sentinel-1 and Sentinel-2 (DEAFRICA)
+* Include parameter tile to select data from HLS collections
+* Improved support for GPU-based classification of deep learning models
+* Support for non-normalized derived indexes
+* Support for shapefiles as ROI in `sits_cube()`
+* Fix inconsistencies in HLS scale factors
+* New function to obtain ROI based on MGRS tiles
+* Add support for uncertainty cubes in `sits_mosaic()`
+* Improve performance of `sits_segment()` using chunk parallelization
+* Include uncertainty measures for vector probability cubes
+* New `sits_clean()` function to improve classified maps
+* New functions `sits_sampling_design()` and `sits_stratified_sampling()`
+* New `sits_reduce()` function
+* Include `dtw` distance when building SOM maps
+
 # What's new in SITS version 1.4
+
+### Hotfix version 1.4.2-3
+* Fix font download in package initialization
+
+### Hotfix version 1.4.2-2
+* Fix integer overflow bug in `sits_classify()` segments
+
+### Hotfix version 1.4.2-1
+* Fix crs bug in `sits_apply()`
+* Update file name in clean feature
+* Fix time series extraction bug with segments
+* Fix examples
 
 ### New features in SITS version 1.4.2
 * Support for vector data cubes, including visualisation

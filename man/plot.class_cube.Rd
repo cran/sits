@@ -8,11 +8,11 @@
   x,
   y,
   ...,
-  tile = x$tile[[1]],
+  tile = x[["tile"]][[1]],
   title = "Classified Image",
   legend = NULL,
   palette = "Spectral",
-  tmap_options = NULL
+  scale = 0.8
 )
 }
 \arguments{
@@ -30,17 +30,7 @@
 
 \item{palette}{Alternative RColorBrewer palette}
 
-\item{tmap_options}{List with optional tmap parameters
-max_cells (default: 1e+06)
-graticules_labels_size (default: 0.7)
-scale (default = 0.8)
-legend_title_size (default: 0.7)
-legend_text_size (default: 0.7)
-legend_bg_color (default: "white")
-legend_bg_alpha (default: 0.5)
-legend_width (default: 0.5)
-legend_height (default: 0.7)
-legend_position (default: c("left", "bottom"))}
+\item{scale}{Scale to plot map (0.4 to 1.0)}
 }
 \value{
 A  color map, where each pixel has the color

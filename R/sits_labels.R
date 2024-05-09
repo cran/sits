@@ -7,9 +7,6 @@
 #'                  patterns (tibble of class "patterns"),
 #'                  data cube (tibble of class "raster_cube"), or
 #'                  model (closure of class "sits_model").
-#' @param value     A character vector used to convert labels. Labels will
-#'                   be renamed to the respective value positioned at the
-#'                   labels order returned by \code{\link{sits_labels}}.
 #' @return          The labels of the input data (character vector).
 #'
 #' @examples
@@ -46,33 +43,31 @@ sits_labels <- function(data) {
 #'
 sits_labels.sits <- function(data) {
     # pre-condition
-    return(sort(unique(data$label)))
+    return(sort(unique(data[["label"]])))
 }
 #' @rdname sits_labels
 #' @export
 #'
 sits_labels.derived_cube <- function(data) {
-    return(data$labels[[1]])
+    return(data[["labels"]][[1]])
 }
 #' @rdname sits_labels
 #' @export
 #'
 sits_labels.derived_vector_cube <- function(data) {
-    return(data$labels[[1]])
+    return(data[["labels"]][[1]])
 }
 #' @rdname sits_labels
 #' @export
 #'
 sits_labels.raster_cube <- function(data) {
-    stop(paste0("Input should be a set of time series",
-         " or probs, class or variance cube"))
-    return(invisible(data))
+    stop(.conf("messages", "sits_labels_raster_cube"))
 }
 #' @rdname sits_labels
 #' @export
 #'
 sits_labels.patterns <- function(data) {
-    return(data$label)
+    return(data[["label"]])
 }
 #' @rdname sits_labels
 #' @export
@@ -84,21 +79,17 @@ sits_labels.sits_model <- function(data) {
 }
 #' @rdname sits_labels
 #' @export
-sits_labels.tbl_df <- function(data) {
+sits_labels.default <- function(data) {
     data <- tibble::as_tibble(data)
     if (all(.conf("sits_cube_cols") %in% colnames(data))) {
         data <- .cube_find_class(data)
     } else if (all(.conf("sits_tibble_cols") %in% colnames(data))) {
         class(data) <- c("sits", class(data))
-    } else
-        stop("Input should be a sits tibble or a data cube")
+    } else {
+        stop(.conf("messages", "sits_labels_raster_cube"))
+    }
     data <- sits_labels(data)
     return(data)
-}
-#' @rdname sits_labels
-#' @export
-sits_labels.default <- function(data) {
-    stop("input should be an object of class cube or class sits")
 }
 #' @title Change the labels of a set of time series
 #' @name `sits_labels<-`
@@ -122,9 +113,9 @@ sits_labels.default <- function(data) {
 #' sits_labels(cerrado_2classes)
 #' @export
 `sits_labels<-` <- function(data, value) {
+    .check_set_caller("sits_labels_assign")
     # check for NA and NULL
-    .check_na(data)
-    .check_null(data)
+    .check_na_null_parameter(data)
     # get the meta-type (sits or cube)
     UseMethod("sits_labels<-", data)
 }
@@ -141,30 +132,23 @@ sits_labels.default <- function(data) {
         len_min = length(labels)
     )
     # check if there are no NA
-    .check_that(
-        x = all(!is.na(value)),
-        msg = "invalid values to replace labels"
-    )
+    .check_that(!anyNA(value))
     # check if there are empty strings
-    .check_that(
-        x = any(trimws(value) != ""),
-        msg = "invalid values to replace labels"
-    )
+    .check_that(any(trimws(value) != ""))
     names(value) <- labels
-    data$label <- value[data$label]
+    data[["label"]] <- value[data[["label"]]]
     return(data)
 }
 #' @name `sits_labels<-`
 #' @return    A probs or class_cube cube with modified labels.
 #' @export
 `sits_labels<-.probs_cube` <- function(data, value) {
+    .check_set_caller("sits_labels_assign_probs_cube")
     # precondition
-    .check_chr(
-        x = value,
+    .check_chr(value,
         allow_empty = FALSE,
         len_min = length(sits_labels(data)),
-        len_max = length(sits_labels(data)),
-        msg = "number of new labels dos not match current labels"
+        len_max = length(sits_labels(data))
     )
     data[["labels"]] <- list(value)
     return(data)
@@ -173,39 +157,32 @@ sits_labels.default <- function(data) {
 #' @export
 #'
 `sits_labels<-.class_cube` <- function(data, value) {
+    .check_set_caller("sits_labels_assign_class_cube")
     # precondition
     n_labels_data <- length(sits_labels(data))
     labels_data <- sits_labels(data)
     .check_chr(value,
-        len_min = n_labels_data,
-        msg = "not enough new labels to replace current ones"
+        len_min = n_labels_data
     )
-    if (purrr::is_null(names(value))) {
+    if (.has_not(names(value))) {
         names(value) <- names(labels_data)
     }
     rows <- slider::slide_dfr(data, function(row) {
-        row$labels <- list(value)
+        row[["labels"]] <- list(value)
         return(row)
     })
     return(rows)
 }
-#' @name sits_labels
-#' @export
-`sits_labels<-.tbl_df` <- function(data, value) {
-    if (all(.conf("sits_cube_cols") %in% colnames(data))) {
-        class(data) <- c("raster_cube", class(data))
-    } else if (all(.conf("sits_tibble_cols") %in% colnames(data))) {
-        class(data) <- c("sits", class(data))
-    } else
-        stop("Input should be a sits tibble, data cube, patterns, or model")
-    sits_labels(data) <- value
-    return(data)
-}
 #' @name `sits_labels<-`
 #' @export
-#'
 `sits_labels<-.default` <- function(data, value) {
     data <- tibble::as_tibble(data)
+    if (all(.conf("sits_cube_cols") %in% colnames(data)))
+        data <- .cube_find_class(data)
+    else if (all(.conf("sits_tibble_cols") %in% colnames(data)))
+        class(data) <- c("sits", class(data))
+    else
+        stop(.conf("messages", "sits_labels_raster_cube"))
     sits_labels(data) <- value
     return(data)
 }
@@ -233,10 +210,10 @@ sits_labels_summary <- function(data) {
 #' @export
 #'
 sits_labels_summary.sits <- function(data) {
-    warning("This function is deprecated. Please use summary()")
+    warning(.conf("messages", "sits_labels_summary"))
 
     # get frequency table
-    data_labels <- table(data$label)
+    data_labels <- table(data[["label"]])
 
     # compose tibble containing labels, count and relative frequency columns
     result <- tibble::as_tibble(list(

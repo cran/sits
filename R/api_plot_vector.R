@@ -7,26 +7,20 @@
 #' @param  tile          Tile to be plotted.
 #' @param  legend        Legend for the classes
 #' @param  palette       A sequential RColorBrewer palette
-#' @param  tmap_options  List with optional tmap parameters
-#'                       tmap max_cells (default: 1e+06)
-#'                       tmap_graticules_labels_size (default: 0.7)
-#'                       tmap_legend_title_size (default: 1.5)
-#'                       tmap_legend_text_size (default: 1.2)
-#'                       tmap_legend_bg_color (default: "white")
-#'                       tmap_legend_bg_alpha (default: 0.5)
+#' @param  scale         Global scale for plot
 #'
 #' @return               A plot object
 #'
 .plot_class_vector  <- function(tile,
                                 legend,
                                 palette,
-                                tmap_options) {
+                                scale) {
+    # set caller to show in errors
+    .check_set_caller(".plot_class_vector")
     # retrieve the segments for this tile
     sf_seg <- .segments_read_vec(tile)
     # check that segments have been classified
-    .check_that("class" %in% colnames(sf_seg),
-                msg = "segments have not been classified"
-    )
+    .check_that("class" %in% colnames(sf_seg))
     # get the labels
     labels <- sf_seg |>
         sf::st_drop_geometry() |>
@@ -41,8 +35,6 @@
         palette = palette,
         rev = TRUE
     )
-    # set the tmap options
-    tmap_params <- .plot_tmap_params(tmap_options)
     # name the colors to match the labels
     names(colors) <- labels
     # join sf geometries
@@ -56,20 +48,13 @@
             palette = colors
         ) +
         tmap::tm_graticules(
-            labels.size = tmap_params[["graticules_labels_size"]]
+            labels.size = as.numeric(.conf("tmap", "graticules_labels_size"))
         ) +
         tmap::tm_compass() +
         tmap::tm_layout(
-            legend.show = TRUE,
-            legend.outside = FALSE,
-            scale = tmap_params[["scale"]],
-            fontfamily        = tmap_params[["font_family"]],
-            legend.bg.color   = tmap_params[["legend_bg_color"]],
-            legend.bg.alpha   = tmap_params[["legend_bg_alpha"]],
-            legend.title.size = tmap_params[["legend_title_size"]],
-            legend.text.size = tmap_params[["legend_text_size"]],
-            legend.width     = tmap_params[["legend_width"]],
-            legend.position  = tmap_params[["legend_position"]]
+            scale = scale,
+            legend.bg.color = .conf("tmap", "legend_bg_color"),
+            legend.bg.alpha = as.numeric(.conf("tmap", "legend_bg_alpha"))
         ) +
         tmap::tm_borders(lwd = 0.2)
     return(p)
@@ -83,22 +68,22 @@
 #' @param  tile          Tile to be plotted.
 #' @param  labels_plot   Labels to be plotted
 #' @param  palette       A sequential RColorBrewer palette
+#' @param  style         Method to process the color scale
+#'                       ("cont", "order", "quantile", "fisher",
+#'                        "jenks", "log10")
 #' @param  rev           Revert the color of the palette?
-#' @param  tmap_options  List with optional tmap parameters
-#'                       tmap max_cells (default: 1e+06)
-#'                       tmap_graticules_labels_size (default: 0.7)
-#'                       tmap_legend_title_size (default: 1.5)
-#'                       tmap_legend_text_size (default: 1.2)
-#'                       tmap_legend_bg_color (default: "white")
-#'                       tmap_legend_bg_alpha (default: 0.5)
+#' @param  scale.        Global map scale
 #'
 #' @return               A plot object
 #'
 .plot_probs_vector  <- function(tile,
                                 labels_plot,
                                 palette,
+                                style,
                                 rev,
-                                tmap_options) {
+                                scale) {
+    # set caller to show in errors
+    .check_set_caller(".plot_probs_vector")
     # verifies if stars package is installed
     .check_require_packages("stars")
     # verifies if tmap package is installed
@@ -114,45 +99,83 @@
     names(labels) <- seq_len(length(labels))
     # check the labels to be plotted
     # if NULL, use all labels
-    if (purrr::is_null(labels_plot)) {
+    if (.has_not(labels_plot))
         labels_plot <- labels
-    } else {
-        .check_that(all(labels_plot %in% labels),
-                    msg = "labels not in cube"
-        )
+    .check_that(all(labels_plot %in% labels))
+
+    # get the segments to be plotted
+    sf_seg <- .segments_read_vec(tile)
+
+    # plot the segments by facet
+    p <- tmap::tm_shape(sf_seg) +
+        tmap::tm_fill(
+            labels_plot,
+            style = style,
+            palette = palette,
+            midpoint = 0.5,
+            title = labels[labels %in% labels_plot]) +
+        tmap::tm_graticules(
+            labels.size = as.numeric(.conf("tmap", "graticules_labels_size"))
+        ) +
+        tmap::tm_facets() +
+        tmap::tm_compass() +
+        tmap::tm_layout(
+            scale = scale,
+            legend.bg.color = .conf("tmap", "legend_bg_color"),
+            legend.bg.alpha = as.numeric(.conf("tmap", "legend_bg_alpha"))
+        ) +
+        tmap::tm_borders(lwd = 0.1)
+
+    return(suppressWarnings(p))
+}
+#' @title  Plot uncertainty vector cube
+#' @name   .plot_uncertainty_vector
+#' @author Gilberto Camara, \email{gilberto.camara@@inpe.br}
+#' @description plots an uncertainty vector cube
+#' @keywords internal
+#' @noRd
+#' @param  tile          Tile to be plotted.
+#' @param  palette       A sequential RColorBrewer palette
+#' @param  style         Method to process the color scale
+#'                       ("cont", "order", "quantile", "fisher",
+#'                        "jenks", "log10")
+#' @param  rev           Revert the color of the palette?
+#' @param  scale         Global map scale
+#'
+#' @return               A plot object
+#'
+.plot_uncertainty_vector <- function(tile,
+                                     palette,
+                                     style,
+                                     rev,
+                                     scale) {
+    # verifies if stars package is installed
+    .check_require_packages("stars")
+    # verifies if tmap package is installed
+    .check_require_packages("tmap")
+    # precondition - check color palette
+    .check_palette(palette)
+    # revert the palette
+    if (rev) {
+        palette <- paste0("-", palette)
     }
     # get the segements to be plotted
     sf_seg <- .segments_read_vec(tile)
-    # set the tmap options
-    tmap_params <- .plot_tmap_params(tmap_options)
-    # set the mode to plot
-    tmap::tmap_mode("plot")
-    # plot the segments by facet
-    # fix number of cols
-    if (length(labels_plot) < 2 )
-        ncol_plot <- 1
-    else
-        ncol_plot <- 2
+    # obtain the uncertainty type
+    uncert_type <- .vi(tile)[["band"]]
     # plot the segments by facet
     p <- tmap::tm_shape(sf_seg) +
-        tmap::tm_polygons(labels_plot) +
-        tmap::tm_facets(sync = FALSE, ncol = 2, scale.factor = 1) +
+        tmap::tm_polygons(uncert_type,
+                          palette = palette,
+                          style = style) +
         tmap::tm_graticules(
-            labels.size = tmap_params[["graticules_labels_size"]]
+            labels.size = as.numeric(.conf("tmap", "graticules_labels_size"))
         ) +
         tmap::tm_compass() +
         tmap::tm_layout(
-            fontfamily      = tmap_params[["font_family"]],
-            legend.bg.color = tmap_params[["legend_bg_color"]],
-            legend.bg.alpha = tmap_params[["legend_bg_alpha"]],
-            legend.title.size = tmap_params[["legend_title_size"]],
-            legend.text.size = tmap_params[["legend_text_size"]],
-            legend.width     = tmap_params[["legend_width"]],
-            legend.height    = tmap_params[["legend_height"]],
-            outer.margins = c(0.00001, 0.00001, 0.00001, 0.00001),
-            inner.margins = c(0, 0, 0, 0),
-            between.margin = 0,
-            asp = 0
+            scale = scale,
+            legend.bg.color = .conf("tmap", "legend_bg_color"),
+            legend.bg.alpha = as.numeric(.conf("tmap", "legend_bg_alpha"))
         ) +
         tmap::tm_borders(lwd = 0.2)
 

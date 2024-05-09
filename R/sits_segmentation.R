@@ -29,6 +29,7 @@
 #' @param  cube       Regular data cube
 #' @param  seg_fn     Function to apply the segmentation
 #' @param  roi        Region of interest (see below)
+#' @param  impute_fn  Imputation function to remove NA values.
 #' @param  start_date Start date for the segmentation
 #' @param  end_date   End date for the segmentation.
 #' @param  memsize    Memory available for classification (in GB).
@@ -79,6 +80,7 @@
 sits_segment <- function(cube,
                          seg_fn = sits_slic(),
                          roi = NULL,
+                         impute_fn = impute_linear(),
                          start_date = NULL,
                          end_date = NULL,
                          memsize = 8,
@@ -86,10 +88,12 @@ sits_segment <- function(cube,
                          output_dir,
                          version = "v1",
                          progress = TRUE) {
+    # set caller for error msg
+    .check_set_caller("sits_segment")
     # Preconditions
     .check_is_raster_cube(cube)
-    .check_is_regular(cube)
-    .check_memsize(memsize, min = 1, max = 16384)
+    .check_that(.cube_is_regular(cube))
+    .check_int_parameter(memsize, min = 1, max = 16384)
     .check_output_dir(output_dir)
     version <- .check_version(version)
     .check_progress(progress)
@@ -121,14 +125,21 @@ sits_segment <- function(cube,
     )
     # Update multicores parameter
     multicores <- .jobs_max_multicores(
-        job_memsize = job_memsize, memsize = memsize, multicores = multicores
+        job_memsize = job_memsize,
+        memsize = memsize,
+        multicores = multicores
     )
     # Update block parameter
     block <- .jobs_optimal_block(
-        job_memsize = job_memsize, block = block,
-        image_size = .tile_size(.tile(cube)), memsize = memsize,
+        job_memsize = job_memsize,
+        block = block,
+        image_size = .tile_size(.tile(cube)),
+        memsize = memsize,
         multicores = multicores
     )
+    # Terra requires at least two pixels to recognize an extent as valid
+    # polygon and not a line or point
+    block <- .block_regulate_size(block)
     # Prepare parallel processing
     .parallel_start(workers = multicores, output_dir = output_dir)
     on.exit(.parallel_stop(), add = TRUE)
@@ -142,6 +153,7 @@ sits_segment <- function(cube,
             band = "segments",
             block = block,
             roi = roi,
+            impute_fn = impute_fn,
             output_dir = output_dir,
             version = version,
             progress = progress
@@ -237,10 +249,12 @@ sits_slic <- function(data = NULL,
                       iter = 30,
                       minarea = 10,
                       verbose = FALSE) {
+    # set caller for error msg
+    .check_set_caller("sits_slic")
     # step is OK?
     .check_int_parameter(step, min = 1, max = 500)
     # compactness is OK?
-    .check_int_parameter(compactness, min = 1, max = 50)
+    .check_num_parameter(compactness, min = 0.1, max = 50)
     # iter is OK?
     .check_int_parameter(iter, min = 10, max = 100)
     # minarea is OK?
@@ -263,25 +277,24 @@ sits_slic <- function(data = NULL,
                   inherits = FALSE
         )
         slic <- fn(
-            mat = mat, vals = data, step = step, nc = compactness,
-            con = TRUE, centers = TRUE, type = dist_fun,
-            type_fun = function() "", avg_fun_fun = function() "",
-            avg_fun_name = avg_fun, iter = iter, lims = minarea,
+            mat = mat, vals = data, step = step, compactness = compactness,
+            clean = TRUE, centers = TRUE, dist_name = dist_fun,
+            dist_fun = function() "", avg_fun_fun = function() "",
+            avg_fun_name = avg_fun, iter = iter, minarea = minarea,
             input_centers = matrix(c(0L, 0L), ncol = 2),
             verbose = as.integer(verbose)
         )
         # Set values and NA value in template raster
         v_obj <- .raster_set_values(v_temp, slic[[1]])
         v_obj <- .raster_set_na(v_obj, -1)
-        # Polygonize raster and convert to sf object
-        v_obj <- .raster_polygonize(v_obj, dissolve = TRUE)
-        # TODO: use vector API
+        # Extract polygons raster and convert to sf object
+        v_obj <- .raster_extract_polygons(v_obj, dissolve = TRUE)
         v_obj <- sf::st_as_sf(v_obj)
         if (nrow(v_obj) == 0) {
             return(v_obj)
         }
         # Get valid centers
-        valid_centers <- slic[[2]][,1] != 0 | slic[[2]][,2] != 0
+        valid_centers <- slic[[2]][, 1] != 0 | slic[[2]][, 2] != 0
         # Bind valid centers with segments table
         v_obj <- cbind(v_obj, stats::na.omit(slic[[2]][valid_centers, ]))
         # Rename columns
@@ -289,8 +302,8 @@ sits_slic <- function(data = NULL,
         # Get the extent of template raster
         v_ext <- .raster_bbox(v_temp)
         # Calculate pixel position by rows and cols
-        xres <- (v_obj[["x"]] * .raster_xres(v_temp)) + (.raster_xres(v_temp)/2)
-        yres <- (v_obj[["y"]] * .raster_yres(v_temp)) - (.raster_yres(v_temp)/2)
+        xres <- v_obj[["x"]] * .raster_xres(v_temp) + .raster_xres(v_temp) / 2
+        yres <- v_obj[["y"]] * .raster_yres(v_temp) - .raster_yres(v_temp) / 2
         v_obj[["x"]] <- as.vector(v_ext)[[1]] + xres
         v_obj[["y"]] <- as.vector(v_ext)[[4]] - yres
         # Get only polygons segments

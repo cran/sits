@@ -18,17 +18,13 @@
     # set caller to show in errors
     .check_set_caller(".values_ts")
     .check_chr_within(
-        x = format,
+        format,
         within = c(
             "cases_dates_bands",
             "bands_cases_dates",
             "bands_dates_cases"
         ),
-        discriminator = "one_of",
-        msg = paste(
-            "valid format parameter are 'cases_dates_bands',",
-            "'bands_cases_dates' or 'bands_dates_cases'"
-        )
+        discriminator = "one_of"
     )
     class(format) <- c(format, class(format))
     UseMethod(".values_ts", format)
@@ -36,11 +32,11 @@
 #' @noRd
 #' @export
 .values_ts.cases_dates_bands <- function(data, bands = NULL, format) {
-    if (purrr::is_null(bands)) {
+    if (.has_not(bands)) {
         bands <- sits_bands(data)
     }
     # populates result
-    values <- data$time_series |>
+    values <- data[["time_series"]] |>
         purrr::map(function(ts) {
             data.matrix(dplyr::select(ts, dplyr::all_of(bands)))
         })
@@ -49,7 +45,7 @@
 #' @noRd
 #' @export
 .values_ts.bands_cases_dates <- function(data, bands = NULL, format) {
-    if (purrr::is_null(bands)) {
+    if (.has_not(bands)) {
         bands <- sits_bands(data)
     }
     # get the distances tables
@@ -91,11 +87,11 @@
 #' @noRd
 #' @export
 .values_ts.bands_dates_cases <- function(data, bands = NULL, format) {
-    if (purrr::is_null(bands)) {
+    if (.has_not(bands)) {
         bands <- sits_bands(data)
     }
     values <- bands |> purrr::map(function(band) {
-        data$time_series |>
+        data[["time_series"]] |>
             purrr::map(function(ts) {
                 dplyr::select(ts, dplyr::all_of(band))
             }) |>

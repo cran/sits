@@ -32,10 +32,9 @@ sits_sample <- function(data,
     # verify if data and frac are valid
     .check_samples_ts(data)
     # check frac parameter
-    .check_num_parameter(frac, min = 0.0, max = 2.0,
-                         msg = "invalid frac parameter")
+    .check_num_parameter(frac, min = 0.0, max = 2.0)
     # check oversample
-    .check_lgl_parameter(oversample, msg = "invalid oversample parameter")
+    .check_lgl_parameter(oversample)
     # group the data by label
     groups <- by(data, data[["label"]], list)
     # for each group of samples, obtain the required subset
@@ -109,14 +108,8 @@ sits_reduce_imbalance <- function(samples,
     .check_int_parameter(n_samples_under)
 
     # check if number of required samples are correctly entered
-    .check_that(
-        n_samples_under >= n_samples_over,
-        local_msg = paste0(
-            "number of samples to undersample for large ",
-            "classes should be higher or equal to number ",
-            "of samples to oversample for small classes"
-        ),
-        msg = "invalid 'n_samples_over' and 'n_samples_under' parameters"
+    .check_that(n_samples_under >= n_samples_over,
+        msg = .conf("messages", "sits_reduce_imbalance_samples")
     )
     # get the bands and the labels
     bands <- sits_bands(samples)
@@ -124,9 +117,9 @@ sits_reduce_imbalance <- function(samples,
     # params of output tibble
     lat <- 0.0
     long <- 0.0
-    start_date <- samples$start_date[[1]]
-    end_date <- samples$end_date[[1]]
-    cube <- samples$cube[[1]]
+    start_date <- samples[["start_date"]][[1]]
+    end_date <- samples[["end_date"]][[1]]
+    cube <- samples[["cube"]][[1]]
     timeline <- sits_timeline(samples)
     # get classes to undersample
     classes_under <- samples |>
@@ -158,7 +151,7 @@ sits_reduce_imbalance <- function(samples,
                 rlen = 50
             )
             # select samples on the SOM grid using the neurons
-            samples_under <- som_map$data |>
+            samples_under <- som_map[["data"]] |>
                 dplyr::group_by(.data[["id_neuron"]]) |>
                 dplyr::slice_sample(n = 4, replace = TRUE) |>
                 dplyr::ungroup()
@@ -233,4 +226,258 @@ sits_reduce_imbalance <- function(samples,
     colnames_sits <- setdiff(colnames(new_samples), c("id_neuron", "id_sample"))
     # return new sample set
     return(new_samples[, colnames_sits])
+}
+#' @title Allocation of sample size to strata
+#' @name sits_sampling_design
+#' @author Gilberto Camara, \email{gilberto.camara@@inpe.br}
+#'
+#' @description
+#' Takes a class cube with different labels and allocates a number of
+#' sample sizes per strata to obtain suitable values of error-adjusted area,
+#' providing five allocation strategies.
+#'
+#' @param  cube                 Classified cube
+#' @param  expected_ua          Expected values of user's accuracy
+#' @param  std_err              Standard error we would like to achieve
+#' @param  rare_class_prop      Proportional area limit for rare classes
+#'
+#'
+#' @return A matrix with options to decide allocation
+#' of sample size to each class. This matrix uses the same format as
+#' Table 5 of Olofsson et al.(2014).
+#'
+#' @references
+#' [1] Olofsson, P., Foody, G.M., Stehman, S.V., Woodcock, C.E. (2013).
+#' Making better use of accuracy data in land change studies: Estimating
+#' accuracy and area and quantifying uncertainty using stratified estimation.
+#' Remote Sensing of Environment, 129, pp.122-131.
+#'
+#' @references
+#' [2] Olofsson, P., Foody G.M., Herold M., Stehman, S.V.,
+#' Woodcock, C.E., Wulder, M.A. (2014)
+#' Good practices for estimating area and assessing accuracy of land change.
+#' Remote Sensing of Environment, 148, pp. 42-57.
+#'
+#' @examples
+#' if (sits_run_examples()) {
+#'     # create a random forest model
+#'     rfor_model <- sits_train(samples_modis_ndvi, sits_rfor())
+#'     # create a data cube from local files
+#'     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
+#'     cube <- sits_cube(
+#'         source = "BDC",
+#'         collection = "MOD13Q1-6",
+#'         data_dir = data_dir
+#'     )
+#'     # classify a data cube
+#'     probs_cube <- sits_classify(
+#'         data = cube, ml_model = rfor_model, output_dir = tempdir()
+#'     )
+#'     # label the probability cube
+#'     label_cube <- sits_label_classification(
+#'         probs_cube,
+#'         output_dir = tempdir()
+#'     )
+#'     # estimated UA for classes
+#'     expected_ua <- c(Cerrado = 0.75, Forest = 0.9,
+#'                      Pasture = 0.8, Soy_Corn = 0.8)
+#'     sampling_design <- sits_sampling_design(label_cube, expected_ua)
+#' }
+#' @export
+sits_sampling_design <- function(cube,
+                                 expected_ua = 0.75,
+                                 std_err = 0.01,
+                                 rare_class_prop = 0.1) {
+    .check_set_caller("sits_sampling_design")
+    # check the cube is valid
+    .check_raster_cube_files(cube)
+    # check cube is class cube
+    .check_is_class_cube(cube)
+    # get the labels
+    labels <- .cube_labels(cube)
+    n_labels <- length(labels)
+    if (length(expected_ua) == 1) {
+        expected_ua <- rep(expected_ua, n_labels)
+        names(expected_ua) <- labels
+    }
+    # check number of labels
+    .check_that(length(expected_ua) == n_labels)
+    # check names of labels
+    .check_that(all(labels %in% names(expected_ua)))
+    # adjust names to match cube labels
+    expected_ua <- expected_ua[labels]
+    # get cube class areas
+    class_areas <- .cube_class_areas(cube)
+    # calculate proportion of class areas
+    prop <- class_areas / sum(class_areas)
+    # standard deviation of the stratum
+    std_dev <- signif(sqrt(expected_ua * (1 - expected_ua)), 3)
+    # calculate sample size
+    sample_size <-  round((sum(prop * std_dev) / std_err) ^ 2)
+    # determine "Equal" allocation
+    equal <- rep(round(sample_size / n_labels), n_labels)
+    names(equal) <- labels
+    # find out the classes which are rare
+    rare_classes <- prop[prop <= rare_class_prop]
+    #  Determine allocation possibilities
+    #  allocate a sample size of 50–100 for rare classes
+    #  Given each allocation for rare classes (e.g, 100 samples)
+    #  allocate the rest of the sample size proportionally
+    #  to the other more frequent classes
+    alloc_three <- c(100, 75, 50)
+    alloc_options_lst <- purrr::map(alloc_three, function(al) {
+        # determine the number of samples to be allocated
+        # to more frequent classes
+        samples_rare_classes <- al * length(rare_classes)
+        remaining_samples <- sample_size - samples_rare_classes
+        # allocate samples per class
+        # rare classes are given a fixed value (100, 75, 50)
+        # other classes are allocated proportionally to area
+        alloc_class_lst <- purrr::map(prop, function(p) {
+            if (p <= rare_class_prop) {
+                choice <- al
+            } else {
+                choice_prop <- p / (1.0 - sum(rare_classes))
+                choice <- round(choice_prop * remaining_samples)
+            }
+            return(choice)
+        })
+        alloc_class <- cbind(alloc_class_lst)
+        colnames(alloc_class) <- paste0("alloc_", al)
+        return(alloc_class)
+    })
+    # get the three allocation options
+    alloc_options <- do.call(cbind, alloc_options_lst)
+    # final option is the proportional allocation
+    alloc_prop <- round(prop * sample_size)
+    # put it all together
+    design <- cbind(prop, expected_ua, std_dev,
+                    equal, alloc_options, alloc_prop
+    )
+    return(design)
+}
+
+#' @title Allocation of sample size to strata
+#' @name sits_stratified_sampling
+#' @author Gilberto Camara, \email{gilberto.camara@@inpe.br}
+#'
+#' @description
+#' Takes a class cube with different labels and a sampling
+#' design with a number of samples per class and allocates a set of
+#' locations for each class
+#'
+#' @param  cube                 Classified cube
+#' @param  sampling_design      Result of sits_sampling_design
+#' @param  alloc                Allocation method chosen
+#' @param  overhead             Additional percentage to account
+#'                              for border points
+#' @param  multicores           Number of cores that will be used to
+#'                              sample the images in parallel.
+#' @param  shp_file             Name of shapefile to be saved (optional)
+#' @param progress              Show progress bar? Default is TRUE.
+#' @return samples              Point sf object with required samples
+#'
+#' @examples
+#' if (sits_run_examples()) {
+#'     # create a random forest model
+#'     rfor_model <- sits_train(samples_modis_ndvi, sits_rfor())
+#'     # create a data cube from local files
+#'     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
+#'     cube <- sits_cube(
+#'         source = "BDC",
+#'         collection = "MOD13Q1-6",
+#'         data_dir = data_dir
+#'     )
+#'     # classify a data cube
+#'     probs_cube <- sits_classify(
+#'         data = cube, ml_model = rfor_model, output_dir = tempdir()
+#'     )
+#'     # label the probability cube
+#'     label_cube <- sits_label_classification(
+#'         probs_cube,
+#'         output_dir = tempdir()
+#'     )
+#'     # estimated UA for classes
+#'     expected_ua <- c(Cerrado = 0.95, Forest = 0.95,
+#'                      Pasture = 0.95, Soy_Corn = 0.95)
+#'     # design sampling
+#'     sampling_design <- sits_sampling_design(label_cube, expected_ua)
+#'     # select samples
+#'     samples <- sits_stratified_sampling(label_cube,
+#'                                         sampling_design, "alloc_prop")
+#'
+#' }
+#' @export
+sits_stratified_sampling <- function(cube,
+                                     sampling_design,
+                                     alloc = "alloc_prop",
+                                     overhead = 1.2,
+                                     multicores = 2L,
+                                     shp_file = NULL,
+                                     progress = TRUE) {
+    .check_set_caller("sits_stratified_sampling")
+    # check the cube is valid
+    .check_raster_cube_files(cube)
+    # check cube is class cube
+    .check_is_class_cube(cube)
+    # get the labels
+    labels <- .cube_labels(cube)
+    n_labels <- length(labels)
+    # check number of labels
+    .check_that(nrow(sampling_design) == n_labels)
+    # check names of labels
+    .check_that(all(rownames(sampling_design) %in% labels))
+    # check allocation method
+    .check_that(alloc %in% colnames(sampling_design),
+                msg = .conf("messages", "sits_sampling_design_alloc"))
+    # retrieve samples class
+    samples_class <- unlist(sampling_design[, alloc])
+    # check samples class
+    .check_int_parameter(samples_class, is_named = TRUE,
+            msg = .conf("messages", "sits_sampling_design_samples")
+    )
+    .check_int_parameter(multicores, min = 1, max = 2048)
+    .check_progress(progress)
+    # name samples class
+    names(samples_class) <- rownames(sampling_design)
+    # include overhead
+    samples_class <- ceiling(samples_class * overhead)
+    # estimate size
+    size <- ceiling(max(samples_class) / nrow(cube))
+    # Prepare parallel processing
+    .parallel_start(workers = multicores)
+    on.exit(.parallel_stop(), add = TRUE)
+    # Create assets as jobs
+    cube_assets <- .cube_split_assets(cube)
+    # Process each asset in parallel
+    samples <- .jobs_map_parallel_dfr(cube_assets, function(tile) {
+        robj <- .raster_open_rast(.tile_path(tile))
+        cls <- data.frame(id = 1:n_labels,
+                          cover = labels)
+        levels(robj) <- cls
+        samples_sv <- terra::spatSample(
+            x = robj,
+            size = size,
+            method = "stratified",
+            as.points = TRUE
+        )
+        samples_sf <- sf::st_as_sf(samples_sv)
+        samples_sf <- dplyr::mutate(samples_sf,
+                                    label = labels[.data[["cover"]]])
+        samples_sf <- sf::st_transform(samples_sf, crs = "EPSG:4326")
+    }, progress = progress)
+
+    samples <- purrr::map_dfr(labels, function(lab) {
+        samples_class <- samples |>
+            dplyr::filter(.data[["label"]] == lab) |>
+            dplyr::slice_sample(n = samples_class[lab])
+    })
+    if (.has(shp_file)) {
+        .check_that(tools::file_ext(shp_file) == "shp",
+                    msg = .conf("messages", "sits_sampling_design_shp")
+        )
+        sf::st_write(samples, shp_file, append = FALSE)
+        message(.conf("messages", "sits_sampling_design_shp_save"), shp_file)
+    }
+    return(samples)
 }

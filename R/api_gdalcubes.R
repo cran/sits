@@ -51,64 +51,6 @@
     return(cube)
 }
 
-#' @keywords internal
-#' @noRd
-#' @export
-`.gc_arrange_images.mpc_cube_sentinel-1-grd` <- function(cube,
-                                                         timeline,
-                                                         period,
-                                                         roi,
-                                                         ...) {
-    # dummy local variables to avoid warnings from tidyverse syntax
-    .x <- NULL
-
-    # pre-requisites
-    .check_that(nrow(cube) == 1,
-                local_msg = "cube must have one row",
-                msg = "invalid sentinel-1 cube")
-
-    # include the end of last interval
-    timeline <- c(
-        timeline,
-        timeline[[length(timeline)]] %m+% lubridate::period(period)
-    )
-
-    # generate Sentinel-2 tiles and intersects it with doi
-    tiles <- .s2tile_open(roi)
-    tiles <- tiles[.intersects(tiles, .roi_as_sf(roi)), ]
-
-    # prepare a sf object representing the bbox of each image in file_info
-    fi_bbox <- .bbox_as_sf(.bbox(
-        x = cube$file_info[[1]],
-        default_crs = cube$crs,
-        by_feature = TRUE
-    ))
-
-    # create a new cube according to Sentinel-2 MGRS
-    cube_class <- .cube_s3class(cube)
-    cube <- tiles |>
-        dplyr::rowwise() |>
-        dplyr::group_map(~{
-            file_info <- .fi(cube)[.intersects({{fi_bbox}}, .x), ]
-            .cube_create(
-                source = .tile_source(cube),
-                collection = .tile_collection(cube),
-                satellite = .tile_satellite(cube),
-                sensor = .tile_sensor(cube),
-                tile = .x$tile_id,
-                xmin = .x$xmin,
-                xmax = .x$xmax,
-                ymin = .x$ymin,
-                ymax = .x$ymax,
-                crs = paste0("EPSG:", .x$epsg),
-                file_info = file_info
-            )
-        }) |>
-        dplyr::bind_rows()
-
-    .cube_set_class(cube, cube_class)
-}
-
 #' @title Create a cube_view object
 #' @name .gc_create_cube_view
 #' @keywords internal
@@ -141,7 +83,8 @@
     .check_set_caller(".gc_create_cube_view")
 
     # pre-conditions
-    .check_has_one_tile(tile)
+    .check_that(nrow(tile) == 1)
+
 
     # get bbox roi
     if (!is.null(roi)) {
@@ -210,7 +153,7 @@
             band = .source_cloud(),
             min = 1,
             max = 2^16,
-            bits = mask_values$values,
+            bits = mask_values[["values"]],
             values = NULL,
             invert = FALSE
         )
@@ -239,23 +182,23 @@
     # use crs from tile if there is no crs in file_info
     if ("crs" %in% names(.fi(cube))) {
         file_info <- dplyr::select(cube, "file_info") |>
-            tidyr::unnest(cols = c("file_info"))
+            tidyr::unnest(cols = "file_info")
     } else {
         file_info <- dplyr::select(cube, "file_info", "crs") |>
-            tidyr::unnest(cols = c("file_info"))
+            tidyr::unnest(cols = "file_info")
     }
 
     # can be "proj:epsg" or "proj:wkt2"
-    crs_type <- .gc_detect_crs_type(file_info$crs[[1]])
+    crs_type <- .gc_detect_crs_type(file_info[["crs"]][[1]])
 
     file_info <- file_info |>
         dplyr::transmute(
-            fid = .data[["fid"]],
+            fid  = .data[["fid"]],
             xmin = .data[["xmin"]],
             ymin = .data[["ymin"]],
             xmax = .data[["xmax"]],
             ymax = .data[["ymax"]],
-            crs = .data[["crs"]],
+            crs  = .data[["crs"]],
             href = .data[["path"]],
             datetime = as.character(.data[["date"]]),
             band = .data[["band"]],
@@ -266,9 +209,9 @@
         tidyr::nest(features = -"fid")
 
     features <- slider::slide_dfr(features, function(feat) {
-        bbox <- .bbox(feat$features[[1]][1, ], as_crs = "EPSG:4326")
+        bbox <- .bbox(feat[["features"]][[1]][1, ], as_crs = "EPSG:4326")
 
-        feat$features[[1]] <- dplyr::mutate(feat$features[[1]],
+        feat[["features"]][[1]] <- dplyr::mutate(feat[["features"]][[1]],
             xmin = bbox[["xmin"]],
             xmax = bbox[["xmax"]],
             ymin = bbox[["ymin"]],
@@ -398,13 +341,6 @@
     # set caller to show in errors
     .check_set_caller(".gc_get_valid_timeline")
 
-    # pre-condition
-    .check_chr(period,
-        allow_empty = FALSE,
-        len_min = 1, len_max = 1,
-        msg = "invalid 'period' parameter"
-    )
-
     # start date - maximum of all minimums
     max_min_date <- do.call(
         what = max,
@@ -412,7 +348,6 @@
             return(min(file_info[["date"]]))
         })
     )
-
     # end date - minimum of all maximums
     min_max_date <- do.call(
         what = min,
@@ -420,13 +355,9 @@
             return(max(file_info[["date"]]))
         })
     )
-
     # check if all timeline of tiles intersects
-    .check_that(
-        x = max_min_date <= min_max_date,
-        msg = "the timeline of the cube tiles do not intersect."
-    )
-
+    .check_that(max_min_date <= min_max_date)
+    # define dates for period
     if (substr(period, 3, 3) == "M") {
         max_min_date <- lubridate::date(paste(
             lubridate::year(max_min_date),
@@ -441,17 +372,15 @@
             sep = "-"
         ))
     }
-
     # generate timeline
     date <- lubridate::ymd(max_min_date)
     min_max_date <- lubridate::ymd(min_max_date)
     tl <- date
-    while (TRUE) {
+    repeat {
         date <- lubridate::ymd(date) %m+% lubridate::period(period)
         if (date > min_max_date) break
         tl <- c(tl, date)
     }
-
     # Add extra time step
     if (extra_date_step) {
         tl <- c(tl, tl[[length(tl)]] %m+% lubridate::period(period))
@@ -480,7 +409,8 @@
     .check_set_caller(".gc_save_raster_cube")
 
     # convert sits gtiff options to gdalcubes format
-    gtiff_options <- strsplit(.conf("gdalcubes_options"), split = "=")
+    gtiff_options <- strsplit(.conf("gdalcubes_options"),
+                              split = "=", fixed = TRUE)
     gdalcubes_co <- purrr::map(gtiff_options, `[[`, 2)
     names(gdalcubes_co) <- purrr::map_chr(gtiff_options, `[[`, 1)
 
@@ -501,10 +431,7 @@
         )
     )
     # post-condition
-    .check_length(img_paths,
-        len_min = 1,
-        msg = "no image was created"
-    )
+    .check_that(length(img_paths) >= 1)
 
     return(img_paths)
 }
@@ -546,14 +473,12 @@
                            progress = progress) {
     # set caller to show in errors
     .check_set_caller(".gc_regularize")
-
     # require gdalcubes package
     .check_require_packages("gdalcubes")
 
     # filter only intersecting tiles
-    if (.has(roi)) {
+    if (.has(roi))
         cube <- .cube_filter_spatial(cube, roi = roi)
-    }
 
     # timeline of intersection
     timeline <- .gc_get_valid_timeline(cube, period = period)
@@ -565,7 +490,6 @@
         period = period,
         roi = roi
     )
-
     # start processes
     .parallel_start(workers = multicores)
     on.exit(.parallel_stop())
@@ -585,14 +509,12 @@
             return(NULL)
         }
     )
-
     # find the tiles that have not been processed yet
     jobs <- .gc_missing_tiles(
         cube = cube,
         local_cube = local_cube,
         timeline = timeline
     )
-
     # recovery mode
     finished <- length(jobs) == 0
 
@@ -609,26 +531,18 @@
 
             # we consider token is expired when the remaining time is
             # less than 5 minutes
-            if (.cube_is_token_expired(cube)) {
+            if (.cube_is_token_expired(cube))
                 return(NULL)
-            }
 
             # filter tile
             tile <- dplyr::filter(cube, .data[["tile"]] == !!tile_name)
-
             # post-condition
-            .check_that(
-                nrow(tile) == 1,
-                local_msg = paste0("no tile '", tile_name, "' found"),
-                msg = "invalid tile"
-            )
+            .check_that(nrow(tile) == 1)
 
             # append gdalcubes path
             path_db <- tempfile(pattern = "gc", fileext = ".db")
-
             # create an image collection
             .gc_create_database_stac(cube = tile, path_db = path_db)
-
             # create a gdalcubes::cube_view
             cube_view <- .gc_create_cube_view(
                 tile = tile,
@@ -660,7 +574,7 @@
             progress <- .check_documentation(progress)
 
             # gdalcubes log file
-            gdalcubes_log_file <- paste0(tempdir(), "/gdalcubes.log")
+            gdalcubes_log_file <- file.path(tempdir(), "/gdalcubes.log")
             # setting threads to process
             gdalcubes::gdalcubes_options(
                 parallel = 2,
@@ -726,11 +640,10 @@
                 purrr::map_chr(bad_tiles, function(tile) {
                     paste0(
                         "(",
-                        paste0(
+                        toString(
                             unique(
                                 tiles_bands[[2]][tiles_bands[[1]] == tile]
-                            ),
-                            collapse = ", "
+                            )
                         ),
                         ")"
                     )
@@ -739,10 +652,9 @@
             )
 
             # show message
-            message(paste(
-                "Tiles", msg, "are missing or malformed",
-                "and will be reprocessed."
-            ))
+            message("tiles", msg, "are missing or malformed", "
+                    and will be reprocessed."
+            )
 
             # remove cache
             .parallel_stop()
@@ -763,7 +675,8 @@
 #' @return A character with the type of crs: "proj:wkt2" or "proj:epsg"
 .gc_detect_crs_type <- function(cube_crs) {
     if (all(is.numeric(cube_crs)) ||
-        all(grepl(pattern = "^EPSG", x = cube_crs))) {
+            all(startsWith(cube_crs, prefix = "EPSG"))
+        ) {
         return("proj:epsg")
     }
     return("proj:wkt2")
