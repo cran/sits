@@ -158,7 +158,7 @@
             stop(.conf("messages", ".reclassify_fn_cube_mask"))
         }
         # Used to check values (below)
-        n_input_pixels <- nrow(values)
+        input_pixels <- nrow(values)
         # Convert to character vector
         values <- as.character(values)
         mask_values <- as.character(mask_values)
@@ -185,12 +185,12 @@
         # Get values as numeric
         values <- matrix(
             data = labels_code[match(values, labels)],
-            nrow = n_input_pixels
+            nrow = input_pixels
         )
         # Mask NA values
         values[is.na(env[["mask"]])] <- NA
         # Are the results consistent with the data input?
-        .check_processed_values(values, n_input_pixels)
+        .check_processed_values(values, input_pixels)
         # Return values
         values
     }
@@ -208,7 +208,7 @@
 
 .reclassify_new_labels <- function(cube, rules) {
     # Get cube labels
-    cube_labels <- .cube_labels(cube, dissolve = FALSE)[[1]]
+    cube_labels <- .cube_labels(cube)
     # Get rules new labels
     new_labels <- setdiff(names(rules), cube_labels)
     # Does rules has new labels in the composition?

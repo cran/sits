@@ -145,6 +145,19 @@
     .check_that(file.exists(yml_file))
     return(yml_file)
 }
+#' @title Return the user-relevant configuration file
+#' @name .config_file
+#' @keywords internal
+#' @noRd
+#' @return default user-relevant configuration file
+.config_file <- function() {
+    .check_set_caller(".config_file")
+    # load the default configuration file
+    yml_file <- system.file("extdata", "config.yml", package = "sits")
+    # check that the file name is valid
+    .check_that(file.exists(yml_file))
+    return(yml_file)
+}
 #' @title Return the message configuration files (only for developers)
 #' @name .conf_sources_files
 #' @keywords internal
@@ -282,7 +295,7 @@
     # pre condition - table contains name and hex code
     .check_chr_contains(
         x = colnames(color_tb),
-        contains = .conf("sits_color_table_cols"),
+        contains = .conf("color_table_cols"),
         discriminator = "all_of"
     )
     # replace all duplicates
@@ -450,7 +463,8 @@
                     user_config[["gdalcubes_chunk_size"]],
                 sources = user_config[["sources"]],
                 colors = user_config[["colors"]],
-                tmap   = user_config[["tmap"]]
+                view   = user_config[["view"]],
+                plot   = user_config[["plot"]]
             )
         }
     }
@@ -484,6 +498,86 @@
     )
     return(invisible(bands))
 }
+#' @title List configuration parameters
+#' @name .conf_list_params
+#' @description List the contents of a source
+#'
+#' @keywords internal
+#' @noRd
+#' @param params        parameter list
+#'
+#' @return              Called for side effects.
+.conf_list_params <- function(params) {
+    params <- lapply(params, function(x) {
+        if (is.atomic(x)) {
+            return(x)
+        }
+        list(names(x))
+    })
+    params_txt <- yaml::as.yaml(
+        params,
+        indent = 4,
+        handlers = list(
+            character = function(x) {
+                res <- toString(x)
+                class(res) <- "verbatim"
+                res
+            },
+            integer = function(x) {
+                res <- toString(x)
+                class(res) <- "verbatim"
+                res
+            },
+            numeric = function(x) {
+                res <- toString(x)
+                class(res) <- "verbatim"
+                res
+            }
+        )
+    )
+    cat(params_txt, sep = "\n")
+}
+
+#' @title List contents of a source
+#' @name .conf_list_source
+#' @description List the contents of a source
+#'
+#' @keywords internal
+#' @noRd
+#' @param source        Data source
+#'
+#' @return              Called for side effects.
+.conf_list_source <- function(source){
+    cat(paste0(source, ":\n"))
+    collections <- .source_collections(source)
+    purrr::map(collections, function(col) {
+        cat(paste0("- ", col))
+        cat(paste0(
+            " (", .source_collection_satellite(source, col),
+            "/", .source_collection_sensor(source, col), ")\n",
+            "- grid system: ", .source_collection_grid_system(source, col), "\n"
+        ))
+        cat("- bands: ")
+        cat(.source_bands(source, col))
+        cat("\n")
+        if (.source_collection_open_data(source, col)) {
+            cat("- opendata collection ")
+            if (.source_collection_open_data(
+                source = source,
+                collection = col,
+                token = TRUE
+            )) {
+                cat("(requires access token)")
+            }
+        } else {
+            cat("- not opendata collection")
+        }
+        cat("\n")
+        cat("\n")
+    })
+}
+
+
 #' @title Get names associated to a configuration key
 #' @name .conf_names
 #' @param key   key combination to access config information
@@ -613,53 +707,41 @@
             msg = .conf("messages", ".conf_new_collection_metadata")
         )
     }
-    # bands names is upper case
-    names(bands) <- toupper(names(bands))
-    # separate cloud and non-cloud bands
-    non_cloud_bands <- bands[!names(bands) %in% .source_cloud()]
-    cloud_band <- bands[names(bands) %in% .source_cloud()]
-
-    non_cloud_bands <- lapply(non_cloud_bands, function(band) {
-        # pre-condition
-        .check_lst(bands,
-            len_min = 1,
-            msg = .conf("messages", ".conf_new_collection_bands")
-        )
-        # bands' members are lower case
-        names(band) <- tolower(names(band))
-        band <- .check_error(
-            {
-                do.call(.conf_new_band, args = band)
-            },
-            msg = .conf("messages", ".conf_new_collection_bands")
-        )
-        return(band)
-    })
-
-    cloud_band <- lapply(cloud_band, function(cloud_band) {
-        # pre-condition
-        .check_lst(bands,
-            len_min = 1,
-            msg = .conf("messages", ".conf_new_collection_bands")
-        )
-        # bands' members are lower case
-        names(cloud_band) <- tolower(names(cloud_band))
-        cloud_band <- .check_error(
-            {
-                do.call(.conf_new_cloud_band, args = cloud_band)
-            },
-            msg = .conf("messages", ".conf_new_collection_bands")
-        )
-        return(cloud_band)
-    })
-
-    # extra parameters
+    # check extra parameters
     dots <- list(...)
     .check_lst(dots,
                msg = .conf("messages", ".conf_new_collection_metadata_args")
     )
-
-    res <- c(list(bands = c(non_cloud_bands, cloud_band)),
+    # bands names is upper case
+    names(bands) <- toupper(names(bands))
+    # pre-condition
+    .check_lst(bands,
+               len_min = 1,
+               msg = .conf("messages", ".conf_new_collection_bands")
+    )
+    # define collection bands
+    collection_bands <- c()
+    # handle class bands
+    is_class_cube <- dots[["class_cube"]]
+    is_class_cube <- all(!is.null(is_class_cube))
+    if (is_class_cube) {
+        # configure class bands (assuming there is no cloud band in class cubes)
+        class_bands <- .conf_new_bands(bands, .conf_new_class_band)
+        # save band configuration object
+        collection_bands <- c(class_bands)
+    } else {
+        # handle cloud and non-cloud bands
+        cloud_band <- bands[names(bands) %in% .source_cloud()]
+        non_cloud_bands <- bands[!names(bands) %in% .source_cloud()]
+        # cloud bands
+        cloud_band <- .conf_new_bands(cloud_band, .conf_new_cloud_band)
+        # non-cloud bands
+        non_cloud_bands <- .conf_new_bands(non_cloud_bands, .conf_new_band)
+        # save bands configuration object
+        collection_bands <- c(non_cloud_bands, cloud_band)
+    }
+    # merge metadata properties
+    res <- c(list(bands = collection_bands),
         "satellite" = satellite,
         "sensor" = sensor,
         "metadata_search" = metadata_search, dots
@@ -802,6 +884,66 @@
     # return a cloud band object
     return(cloud_band_params)
 }
+#' @title Include a new class band in the configuration
+#' @name .conf_new_class_band
+#' @description creates a description associated to a new cloud band
+#' @param bit_mask       bit mask to describe clouds (if applicable)
+#' @param values         values of the class band
+#' @param resolution     spatial resolution (in meters)
+#' @param band_name      name of the band
+#' @param ...            other relevant parameters
+#' @keywords internal
+#' @noRd
+#' @return   list with the configuration associated to the new class band
+.conf_new_class_band <- function(bit_mask, values, resolution, band_name, ...) {
+    # set caller to show in errors
+    .check_set_caller(".conf_new_class_band")
+    # pre-condition
+    .check_lgl_parameter(bit_mask)
+    .check_lst_parameter(values, fn_check = .check_chr)
+    .check_chr_parameter(band_name, len_min = 1, len_max = 1)
+
+    # check extra parameters
+    dots <- list(...)
+    .check_lst(dots, msg = .conf("messages",
+                                 ".check_new_class_band_dots"))
+
+    # build band
+    class_band_params <- c(list(
+        bit_mask = bit_mask,
+        values = values,
+        resolution = resolution,
+        band_name = band_name
+    ), dots)
+
+    # post-condition
+    .check_lst_parameter(class_band_params, len_min = 4)
+
+    # return a class band object
+    return(class_band_params)
+}
+#' @title Configure bands
+#' @name .conf_new_bands
+#' @description creates a description of multiple bands based on a user-defined
+#' strategy.
+#' @param bands       bands to be configured
+#' @param config_fnc  band configuration strategy function
+#' @keywords internal
+#' @noRd
+#' @return   list of configurations associated with the given bands
+.conf_new_bands <- function(bands, config_fnc) {
+    lapply(bands, function(band) {
+        # lower case bands
+        names(band) <- tolower(names(band))
+        # configure band
+        .check_error(
+            {
+                do.call(config_fnc, args = band)
+            },
+            msg = .conf("messages", ".conf_new_collection_bands")
+        )
+    })
+}
 #' @title Retrieve the rstac pagination limit
 #' @name .conf_rstac_limit
 #' @keywords internal
@@ -821,6 +963,18 @@
     res <- .conf("raster_api_package")
     return(res)
 }
+
+#' @title Retrieve the request package to be used
+#' @name .conf_request_pkg
+#' @keywords internal
+#' @noRd
+#' @return the package used to process http requisitions
+#'
+.conf_request_pkg <- function() {
+    res <- .conf("request_api_package")
+    return(res)
+}
+
 #' @title Basic access config functions
 #' @noRd
 #'
@@ -880,16 +1034,16 @@ NULL
 #'
 #' @examples
 #' if (sits_run_examples()) {
-#'     # tests if 'BDC -> MOD13Q1-6 -> NDVI' key exists in config
+#'     # tests if 'BDC -> MOD13Q1-6.1 -> NDVI' key exists in config
 #'     .conf_eo_band_exists(
 #'         source = "BDC",
-#'         collection = "MOD13Q1-6",
+#'         collection = "MOD13Q1-6.1",
 #'         band = "NDVI"
 #'     )
 #'     # get configuration for band NDVI of 'BDC -> MOD13Q1-6' collection
 #'     x <- .conf_eo_band(
 #'         source = "BDC",
-#'         collection = "MOD13Q1-6",
+#'         collection = "MOD13Q1-6.1",
 #'         band = "NDVI"
 #'     )
 #' }

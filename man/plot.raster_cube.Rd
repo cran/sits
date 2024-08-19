@@ -12,12 +12,13 @@
   green = NULL,
   blue = NULL,
   tile = x[["tile"]][[1]],
-  date = NULL,
+  dates = NULL,
   palette = "RdYlGn",
-  style = "cont",
-  n_colors = 10,
   rev = FALSE,
-  scale = 1
+  scale = 1,
+  first_quantile = 0.02,
+  last_quantile = 0.98,
+  max_cog_size = 1024
 )
 }
 \arguments{
@@ -35,32 +36,44 @@
 
 \item{tile}{Tile to be plotted.}
 
-\item{date}{Date to be plotted.}
+\item{dates}{Dates to be plotted.}
 
 \item{palette}{An RColorBrewer palette}
-
-\item{style}{Method to process the color scale
-("cont", "order", "quantile", "fisher",
- "jenks", "log10")}
-
-\item{n_colors}{Number of colors to be shown}
 
 \item{rev}{Reverse the color order in the palette?}
 
 \item{scale}{Scale to plot map (0.4 to 1.0)}
+
+\item{first_quantile}{First quantile for stretching images}
+
+\item{last_quantile}{Last quantile for stretching images}
+
+\item{max_cog_size}{Maximum size of COG overviews (lines or columns)}
 }
 \value{
 A plot object with an RGB image
-                      or a B/W image on a color
-                      scale using the pallete
+                      or a B/W image on a color scale
 }
 \description{
 Plot RGB raster cube
 }
 \note{
-To see which colors are supported, please run \code{sits_colors()}
-      Use \code{scale} parameter for general output control.
-      If required, then set the other params individually
+Use \code{scale} parameter for general output control.
+      The \code{dates} parameter indicates the date allows plotting of different dates when
+      a single band and three dates are provided, `sits` will plot a
+      multi-temporal RGB image for a single band (useful in the case of
+      SAR data). For RGB bands with multi-dates, multiple plots will be
+      produced.
+
+The following optional parameters are available to allow for detailed
+      control over the plot output:
+\itemize{
+\item \code{graticules_labels_size}: size of coordinates labels (default = 0.7)
+\item \code{legend_title_size}: relative size of legend title (default = 0.7)
+\item \code{legend_text_size}: relative size of legend text (default = 0.7)
+\item \code{legend_bg_color}: color of legend background (default = "white")
+\item \code{legend_bg_alpha}: legend opacity (default = 0.3)
+}
 }
 \examples{
 if (sits_run_examples()) {
@@ -68,11 +81,11 @@ if (sits_run_examples()) {
     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
     cube <- sits_cube(
         source = "BDC",
-        collection = "MOD13Q1-6",
+        collection = "MOD13Q1-6.1",
         data_dir = data_dir
     )
     # plot NDVI band of the second date date of the data cube
-    plot(cube, band = "NDVI", date = sits_timeline(cube)[1])
+    plot(cube, band = "NDVI", dates = sits_timeline(cube)[1])
 }
 }
 \author{

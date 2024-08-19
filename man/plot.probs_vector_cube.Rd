@@ -10,9 +10,8 @@
   tile = x[["tile"]][[1]],
   labels = NULL,
   palette = "YlGn",
-  style = "cont",
   rev = FALSE,
-  scale = 0.8
+  scale = 1
 )
 }
 \arguments{
@@ -22,13 +21,9 @@
 
 \item{tile}{Tile to be plotted.}
 
-\item{labels}{Labels to plot (optional).}
+\item{labels}{Labels to plot}
 
 \item{palette}{RColorBrewer palette}
-
-\item{style}{Method to process the color scale
-("cont", "order", "quantile", "fisher",
- "jenks", "log10")}
 
 \item{rev}{Reverse order of colors in palette?}
 
@@ -49,7 +44,7 @@ if (sits_run_examples()) {
     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
     cube <- sits_cube(
         source = "BDC",
-        collection = "MOD13Q1-6",
+        collection = "MOD13Q1-6.1",
         data_dir = data_dir
     )
     # segment the image
@@ -71,7 +66,7 @@ if (sits_run_examples()) {
         output_dir = tempdir()
     )
     # plot the resulting probability cube
-    plot(probs_vector_cube)
+    plot(probs_vector_cube, labels = "Forest")
 }
 
 }

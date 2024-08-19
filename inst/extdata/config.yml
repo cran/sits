@@ -1,2 +1,17 @@
 # These are configuration parameters that can be set by users
-# The parameters enable access to the cloud collections
+#
+
+plot:
+    max_size: 1200
+    midpoint: NA
+    graticules_labels_size: 0.7
+    legend_title_size: 0.7
+    legend_text_size: 0.7
+    legend_bg_color: "white"
+    legend_bg_alpha: 0.7
+    legend_width: 1
+    legend_position: ["left", "bottom"]
+    legend_height: 1
+    scale: 1.0
+    font_family: "sans"
+

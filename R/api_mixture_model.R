@@ -135,7 +135,7 @@
     # Get endmembers bands
     bands <- .endmembers_bands(em)
     # Read and preprocess values from each band
-    values <- purrr::map_dfc(bands, function(band) {
+    values <- .map_dfc(bands, function(band) {
         # Get band values (stops if band not found)
         values <- .tile_read_block(tile = tile, band = band, block = block)
         # Remove cloud masked pixels
@@ -160,7 +160,7 @@
     em_mtx <- .endmembers_as_matrix(em)
     mixture_fn <- function(values) {
         # Check values length
-        n_input_pixels <- nrow(values)
+        input_pixels <- nrow(values)
         # Process NNLS solver and return
         values <- C_nnls_solver_batch(
             x = as.matrix(values),
@@ -168,7 +168,7 @@
             rmse = rmse
         )
         # Are the results consistent with the data input?
-        .check_processed_values(values, n_input_pixels)
+        .check_processed_values(values, input_pixels)
         # Return values
         values
     }

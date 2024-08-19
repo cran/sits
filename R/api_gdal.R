@@ -92,22 +92,30 @@
     )
     return(invisible(file))
 }
-#' @title Run gdal_warp for SAR GRD files
+#' @title Run gdal_warp_file
 #' @noRd
 #' @param raster_file  File to be copied from (with path)
-#' @param size         Size of output file
+#' @param sizes        Sizes of output file
+#' @param t_srs        Target spatial reference system
 #' @returns            Name of output file
-.gdal_warp_grd <- function(raster_file, size) {
+.gdal_warp_file <- function(raster_file, sizes, t_srs = NULL) {
+    # create a temporary file
     temp_file <- tempfile(fileext = ".tif")
+    # basic parameters
+    params = list(
+        "-ts" = list(sizes[["xsize"]], sizes[["ysize"]]),
+        "-multi" = FALSE,
+        "-q" = TRUE,
+        "-overwrite" = FALSE
+    )
+    # additional param for target SRS
+    if (.has(t_srs))
+        params <- append(params, c("t_srs" = t_srs))
+    # warp the data
     .gdal_warp(
         file = temp_file,
         base_files = raster_file,
-        params = list(
-            "-ts" = list(size[["xsize"]], size[["ysize"]]),
-            "-multi" = FALSE,
-            "-q" = TRUE,
-            "-overwrite" = FALSE
-        ),
+        params = params,
         quiet = TRUE)
     return(temp_file)
 }
@@ -156,7 +164,7 @@
                 ),
                 params = list(
                     "-ot" = data_type,
-                    "-of" = .conf("gdal_presets", "block", "of"),
+                    "-of" = .conf("gdal_presets", "image", "of"),
                     "-b" = rep(1, nlayers),
                     "-outsize" = list(.ncols(block), .nrows(block)),
                     "-scale" = list(0, 1, miss_value, miss_value),
@@ -165,7 +173,7 @@
                         .xmin(bbox), .ymax(bbox), .xmax(bbox), .ymin(bbox)
                     ),
                     "-a_nodata" = miss_value,
-                    "-co" = .conf("gdal_presets", "block", "co")
+                    "-co" = .conf("gdal_presets", "image", "co")
                 ),
                 quiet = TRUE
             )
@@ -234,7 +242,7 @@
         .finally = {
             # Delete auxiliary files
             unlink(paste0(file, ".aux.xml"))
-            if (.has(roi)) unlink(roi_file)
+            if (.has(roi)) .roi_delete(roi_file)
         }
     )
     # Return file
@@ -266,6 +274,7 @@
         "-multi" = FALSE,
         "-t_srs" = as_crs,
         "-cutline" = roi_file,
+        "-crop_to_cutline" = TRUE,
         "-dstnodata" = miss_value,
         "-overwrite" = overwrite
     )
@@ -337,4 +346,11 @@
         params = gdal_params, quiet = TRUE
     )
     return(invisible(out_file))
+}
+#' @title Get GDAL Version
+#' @noRd
+#' @returns  GDAL Version
+.gdal_version <- function() {
+    sf_versions <- sf::sf_extSoftVersion()
+    sf_versions[["GDAL"]]
 }

@@ -115,9 +115,15 @@
         return(class_tile)
     }
     # Get tile labels
-    labels <- unname(.tile_labels(tile))
+    tile_labels <- unname(.tile_labels(tile))
     # Read probability segments
     probs_segments <- .segments_read_vec(tile)
+    # Segment labels
+    segment_labels <- setdiff(
+        colnames(probs_segments), c("supercells", "x", "y", "pol_id", "geom")
+    )
+    # Necessary when not all labels are present on the tile
+    labels <- intersect(tile_labels, segment_labels)
     # Classify each segment by majority probability
     probs_segments <- probs_segments |>
         dplyr::rowwise() |>
@@ -148,10 +154,10 @@
 .label_fn_majority <- function() {
     label_fn <- function(values) {
         # Used to check values (below)
-        n_input_pixels <- nrow(values)
+        input_pixels <- nrow(values)
         values <- C_label_max_prob(values)
         # Are the results consistent with the data input?
-        .check_processed_values(values, n_input_pixels)
+        .check_processed_values(values, input_pixels)
         # Return values
         values
     }

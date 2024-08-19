@@ -79,13 +79,13 @@ sits_rfor <- function(samples = NULL, num_trees = 100, mtry = NULL, ...) {
             # Verifies if randomForest package is installed
             .check_require_packages("randomForest")
             # Used to check values (below)
-            n_input_pixels <- nrow(values)
+            input_pixels <- nrow(values)
             # Do classification
             values <- stats::predict(
                 object = model, newdata = values, type = "prob"
             )
             # Are the results consistent with the data input?
-            .check_processed_values(values, n_input_pixels)
+            .check_processed_values(values, input_pixels)
             # Reorder matrix columns if needed
             if (any(labels != colnames(values))) {
                 values <- values[, labels]
@@ -165,6 +165,9 @@ sits_svm <- function(samples = NULL, formula = sits_formula_linear(),
     .check_set_caller("sits_svm")
     # Function that trains a support vector machine model
     train_fun <- function(samples) {
+        # does not support working with DEM or other base data
+        if (inherits(samples, "sits_base"))
+            stop(.conf("messages", "sits_train_base_data"), call. = FALSE)
         # Verifies if e1071 package is installed
         .check_require_packages("e1071")
         # Get labels (used later to ensure column order in result matrix)
@@ -193,7 +196,7 @@ sits_svm <- function(samples = NULL, formula = sits_formula_linear(),
             # Verifies if e1071 package is installed
             .check_require_packages("e1071")
             # Used to check values (below)
-            n_input_pixels <- nrow(values)
+            input_pixels <- nrow(values)
             # Performs data normalization
             values <- .pred_normalize(pred = values, stats = ml_stats)
             # Do classification
@@ -203,7 +206,7 @@ sits_svm <- function(samples = NULL, formula = sits_formula_linear(),
             # Get the predicted probabilities
             values <- attr(values, "probabilities")
             # Are the results consistent with the data input?
-            .check_processed_values(values, n_input_pixels)
+            .check_processed_values(values, input_pixels)
             # Reorder matrix columns if needed
             if (any(labels != colnames(values))) {
                 values <- values[, labels]
@@ -337,14 +340,14 @@ sits_xgboost <- function(samples = NULL, learning_rate = 0.15,
             # Verifies if xgboost package is installed
             .check_require_packages("xgboost")
             # Used to check values (below)
-            n_input_pixels <- nrow(values)
+            input_pixels <- nrow(values)
             # Do classification
             values <- stats::predict(
                 object = model, as.matrix(values), ntreelimit = ntreelimit,
                 reshape = TRUE
             )
             # Are the results consistent with the data input?
-            .check_processed_values(values, n_input_pixels)
+            .check_processed_values(values, input_pixels)
             # Update the columns names to labels
             colnames(values) <- labels
             return(values)

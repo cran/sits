@@ -12,7 +12,6 @@ test_that("Plot Time Series and Images", {
     )
 
     p2 <- plot(sits_patterns(cerrado_2classes))
-    expect_equal(p2$guides$colour$title, "Bands")
     expect_equal(p2$theme$legend.position, "bottom")
 
     p3 <- cerrado_2classes |>
@@ -22,7 +21,6 @@ test_that("Plot Time Series and Images", {
     expect_equal(as.Date(p3$data$Time[1]), as.Date("2000-09-13"))
     expect_equal(p3$data$Pattern[1], "Cerrado")
     expect_equal(p3$data$name[1], "EVI")
-    expect_equal(p3$guides$colour$title, "Bands")
 
     p4 <- cerrado_2classes |>
         sits_patterns() |>
@@ -30,7 +28,6 @@ test_that("Plot Time Series and Images", {
     expect_equal(as.Date(p4$data$Time[1]), as.Date("2000-09-13"))
     expect_equal(p4$data$Pattern[1], "Cerrado")
     expect_equal(p4$data$name[1], "NDVI")
-    expect_equal(p4$guides$colour$title, "Bands")
 
     point_ndvi <- sits_select(point_mt_6bands, bands = "NDVI")
     set.seed(290356)
@@ -44,13 +41,13 @@ test_that("Plot Time Series and Images", {
     data_dir <- system.file("extdata/raster/mod13q1", package = "sits")
     sinop <- sits_cube(
         source = "BDC",
-        collection = "MOD13Q1-6",
+        collection = "MOD13Q1-6.1",
         data_dir = data_dir,
         progress = FALSE
     )
-    p <- plot(sinop, band = "NDVI", palette = "RdYlGn", rev = TRUE)
-    expect_equal(p$tm_shape$shp_name, "stars_obj")
-    expect_equal(p$tm_raster$palette, "-RdYlGn")
+    p <- plot(sinop, band = "NDVI", palette = "RdYlGn")
+    expect_equal(p$tm_shape$shp_name, "st")
+    expect_equal(p$tm_raster$palette, "RdYlGn")
     expect_equal(p$tm_grid$grid.projection, 4326)
 
     p_rgb <- plot(sinop, red = "NDVI", green = "NDVI", blue = "NDVI")
@@ -94,10 +91,36 @@ test_that("Plot Time Series and Images", {
         progress = FALSE
     )
 
-    p4 <- plot(sinop_labels, title = "Classified image")
+    p4 <- plot(sinop_labels)
     expect_equal(p4$tm_grid$grid.projection, 4326)
     expect_equal(p4$tm_raster$n, 5)
     expect_true(p4$tm_shape$check_shape)
+})
+
+test_that("Plot class cube from STAC", {
+    to_class <- .try(
+        {
+            sits_cube(
+                source     = "TERRASCOPE",
+                collection = "WORLD-COVER-2021",
+                bands      = "CLASS",
+                roi        = c("lon_min" = -62.7,
+                               "lon_max" = -62.5,
+                               "lat_min" = -8.83 ,
+                               "lat_max" = -8.70
+                ),
+                progress   = FALSE
+            )
+        },
+        .default = NULL
+    )
+    testthat::skip_if(purrr::is_null(to_class),
+                      message = "TERRASCOPE is not accessible"
+    )
+    p1 <- plot(to_class)
+    expect_equal(p1$tm_grid$grid.projection, 4326)
+    expect_equal(p1$tm_raster$n, 5)
+    expect_true(p1$tm_shape$check_shape)
 })
 
 test_that("Plot Accuracy", {

@@ -9,6 +9,10 @@ weighted_uncert_probs <- function(data_lst, unc_lst) {
     .Call(`_sits_weighted_uncert_probs`, data_lst, unc_lst)
 }
 
+dtw_distance <- function(ts1, ts2) {
+    .Call(`_sits_dtw_distance`, ts1, ts2)
+}
+
 C_kernel_median <- function(x, ncols, nrows, band, window_size) {
     .Call(`_sits_C_kernel_median`, x, ncols, nrows, band, window_size)
 }
@@ -191,6 +195,10 @@ smooth_whit <- function(data, lambda, length) {
 
 smooth_whit_mtx <- function(data, lambda, length) {
     .Call(`_sits_smooth_whit_mtx`, data, lambda, length)
+}
+
+softmax <- function(values) {
+    .Call(`_sits_softmax`, values)
 }
 
 C_entropy_probs <- function(x) {
